@@ -1,5 +1,3 @@
-//! The pure description of the writes an apply needs.
-
 use std::path::{Path, PathBuf};
 
 use crate::Error;

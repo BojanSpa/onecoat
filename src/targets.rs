@@ -1,5 +1,3 @@
-//! Where onecoat's files live.
-
 use std::env;
 use std::path::PathBuf;
 

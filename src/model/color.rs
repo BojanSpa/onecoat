@@ -1,5 +1,3 @@
-//! sRGB colours, parsed once at the boundary.
-
 use std::fmt;
 
 use serde::{Serialize, Serializer};

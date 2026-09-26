@@ -1,5 +1,3 @@
-//! Validation: turning a [`Parsed`] theme into a [`Validated`] one.
-
 use std::collections::BTreeMap;
 use std::path::Path;
 

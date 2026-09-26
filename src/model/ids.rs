@@ -1,5 +1,3 @@
-//! Identifiers and small enumerations that name a theme, a slot, a target, or an origin.
-
 use std::borrow::Borrow;
 use std::fmt;
 use std::str::FromStr;

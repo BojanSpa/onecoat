@@ -1,5 +1,3 @@
-//! Writes a plan's files to disk.
-
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};

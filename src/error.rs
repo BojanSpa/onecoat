@@ -1,5 +1,3 @@
-//! The one error type onecoat returns.
-
 use std::{io, path::PathBuf};
 
 use crate::model::{Appearance, Base16Entry, HexColor, ThemeId};

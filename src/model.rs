@@ -1,5 +1,3 @@
-//! The domain model: ids, colours, palettes, and the two theme phases.
-
 pub mod color;
 pub mod ids;
 pub mod palette;

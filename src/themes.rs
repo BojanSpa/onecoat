@@ -1,5 +1,3 @@
-//! Bundled themes and the theme set a run works with.
-
 use std::collections::BTreeMap;
 use std::fs;
 use std::io;

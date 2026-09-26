@@ -1,5 +1,3 @@
-//! Base16 role derivation shared by every renderer.
-
 use crate::model::palette::{AnsiSet, AnsiSlot, Base16Entry, Palette};
 
 #[allow(missing_docs)]

@@ -1,5 +1,3 @@
-//! The theme document and its two phases: [`Parsed`] and [`Validated`].
-
 use std::collections::BTreeMap;
 use std::fmt;
 use std::path::{Path, PathBuf};

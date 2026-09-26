@@ -1,5 +1,3 @@
-//! The base16 palette and the derived Windows Terminal ANSI set.
-
 use std::ops::{Index, IndexMut};
 
 use crate::model::color::HexColor;

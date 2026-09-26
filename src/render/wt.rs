@@ -1,5 +1,3 @@
-//! The Windows Terminal colour scheme.
-
 use serde::Serialize;
 
 use crate::model::color::HexColor;
