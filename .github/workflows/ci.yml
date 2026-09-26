@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTDOCFLAGS: -D warnings
+
+jobs:
+  gates:
+    name: DoD gates
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Toolchain
+        run: |
+          rustup install
+          rustup show
+
+      - name: Format
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test --all-targets
+
+      - name: Docs
+        run: cargo doc --no-deps
+
+      - name: Rendering is pure (N-5)
+        run: |
+          $hits = Get-ChildItem -Recurse -File -Include *.rs src/model, src/render, src/rolemap.rs, src/validate.rs |
+              Select-String -Pattern 'std::fs|std::process|std::env'
+          if ($hits) {
+              $hits
+              throw 'a pure module reaches for IO or the environment'
+          }
+
+      - name: Release binary is static (N-2)
+        run: |
+          cargo build --release
+          if ($LASTEXITCODE -ne 0) {
+              throw 'the release build failed'
+          }
+          $binary = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes('target\release\onecoat.exe'))
+          if ($binary -match 'VCRUNTIME140') {
+              throw 'the release binary imports the dynamic CRT'
+          }
+          Write-Host 'N-2: the release binary does not import VCRUNTIME140'
