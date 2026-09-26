@@ -1,7 +1,4 @@
 //! The pure description of the writes an apply needs.
-//!
-//! A plan is data: building one touches no file, and the same plan can be printed by a
-//! later `--dry-run` instead of executed.
 
 use std::path::{Path, PathBuf};
 
@@ -9,7 +6,6 @@ use crate::Error;
 use crate::model::ids::Target;
 use crate::render::wt::WtFragment;
 
-/// One file a plan will write, with the exact bytes to write.
 #[allow(missing_docs)]
 pub struct PlannedWrite {
     pub target: Target,
@@ -17,14 +13,13 @@ pub struct PlannedWrite {
     pub bytes: Vec<u8>,
 }
 
-/// Every write an apply needs, in execution order.
 #[allow(missing_docs)]
 pub struct Plan {
     pub writes: Vec<PlannedWrite>,
 }
 
 impl Plan {
-    /// Plans onecoat's fragment for `path` as pretty JSON with a trailing newline.
+    #[allow(missing_docs)]
     pub fn fragment(path: &Path, fragment: &WtFragment) -> Result<Self, Error> {
         let mut bytes = serde_json::to_string_pretty(fragment)
             .map_err(|source| Error::JsonEncodeFailed { source })?

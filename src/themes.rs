@@ -9,21 +9,16 @@ use crate::error::Error;
 use crate::model::ids::{Origin, ThemeId};
 use crate::model::theme::{Theme, Validated};
 
-/// Bundled themes, compiled in so the binary has no data files (N-2).
-pub const BUNDLED: &[(&str, &str)] = &[("nord", include_str!("../themes/nord.toml"))];
+pub(crate) const BUNDLED: &[(&str, &str)] = &[("nord", include_str!("../themes/nord.toml"))];
 
-/// Every theme a run can use: the bundled ones plus the user's.
+#[allow(missing_docs)]
 #[derive(Debug)]
 pub struct ThemeSet {
     themes: BTreeMap<ThemeId, Theme<Validated>>,
 }
 
+#[allow(missing_docs)]
 impl ThemeSet {
-    /// Loads the bundled themes, then `<user_themes_dir>/*.toml` sorted by file name.
-    ///
-    /// A missing directory is an empty set, and a user theme replaces a bundled theme
-    /// with the same id (R-5). Any invalid file fails the whole load, so a broken theme
-    /// cannot silently disappear from `list`.
     pub fn load(user_themes_dir: &Path) -> Result<Self, Error> {
         let mut themes = BTreeMap::new();
         for (name, source) in BUNDLED {
@@ -37,7 +32,7 @@ impl ThemeSet {
         }
 
         let mut declared: BTreeMap<ThemeId, PathBuf> = BTreeMap::new();
-        for path in user_theme_files(user_themes_dir)? {
+        for path in toml_files_by_name(user_themes_dir)? {
             let source = fs::read_to_string(&path).map_err(|source| Error::FileUnreadable {
                 path: path.clone(),
                 source,
@@ -55,19 +50,16 @@ impl ThemeSet {
         Ok(Self { themes })
     }
 
-    #[allow(missing_docs)]
     pub fn get(&self, id: &str) -> Option<&Theme<Validated>> {
         self.themes.get(id)
     }
 
-    /// Iterates the themes in id order.
     pub fn iter(&self) -> impl Iterator<Item = &Theme<Validated>> {
         self.themes.values()
     }
 }
 
-/// The `.toml` files directly under `dir`, sorted by file name.
-fn user_theme_files(dir: &Path) -> Result<Vec<PathBuf>, Error> {
+fn toml_files_by_name(dir: &Path) -> Result<Vec<PathBuf>, Error> {
     let entries = match fs::read_dir(dir) {
         Ok(entries) => entries,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),

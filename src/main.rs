@@ -1,9 +1,3 @@
-//! onecoat's command-line surface: `list` and `use`.
-//!
-//! Data goes to stdout and diagnostics go to stderr, so a caller can consume either
-//! stream (R-41). clap exits 2 on a usage error, this binary exits 3 on any failure
-//! reported by the library, and exit code 1 is reserved for `verify`.
-
 use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
@@ -167,8 +161,6 @@ fn print_table(themes: &ThemeSet) {
         widest(|row| row.origin),
     );
     for row in &rows {
-        // A theme's name may be empty, and it is the bare last cell, so trim the
-        // separator space that would otherwise end the line.
         let line = format!(
             "{:<id$} {:<appearance$} {:<origin$} {}",
             row.id,

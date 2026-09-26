@@ -6,21 +6,15 @@ use std::str::FromStr;
 
 use serde::Serialize;
 
-/// A theme identifier: `[a-z0-9]` followed by zero or more `[a-z0-9-]`.
-///
-/// The field is private, so a value that was not built by [`ThemeId::parse`] or
-/// [`FromStr`] cannot exist.
+#[allow(missing_docs)]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize)]
 #[serde(transparent)]
 pub struct ThemeId(String);
 
-/// Why a string is not a valid [`ThemeId`].
 #[allow(missing_docs)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum IdProblem {
     Empty,
-    /// The first character outside `[a-z0-9-]`, or a leading character outside
-    /// `[a-z0-9]`.
     BadChar(char),
 }
 
@@ -32,7 +26,7 @@ impl ThemeId {
         if !first.is_ascii_lowercase() && !first.is_ascii_digit() {
             return Err(IdProblem::BadChar(first));
         }
-        if let Some(ch) = chars.find(|ch| !is_id_char(*ch)) {
+        if let Some(ch) = chars.find(|ch| !is_id_continuation_char(*ch)) {
             return Err(IdProblem::BadChar(ch));
         }
         Ok(Self(raw.to_owned()))
@@ -43,8 +37,7 @@ impl ThemeId {
     }
 }
 
-/// Whether `ch` may appear after the first character of a theme id.
-fn is_id_char(ch: char) -> bool {
+fn is_id_continuation_char(ch: char) -> bool {
     ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '-'
 }
 
@@ -82,7 +75,6 @@ impl fmt::Display for IdProblem {
 
 impl std::error::Error for IdProblem {}
 
-/// The appearance a theme occupies: one of the two stable slots.
 #[allow(missing_docs)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -92,7 +84,7 @@ pub enum Slot {
 }
 
 impl Slot {
-    /// The slot name: `dark` or `light`.
+    #[allow(missing_docs)]
     pub fn name(self) -> &'static str {
         match self {
             Self::Dark => "dark",
@@ -101,7 +93,6 @@ impl Slot {
     }
 }
 
-/// The appearance a theme declares, checked against its background (R-3).
 #[allow(missing_docs)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -134,7 +125,6 @@ pub enum Target {
     Omp,
 }
 
-/// Where a loaded theme came from.
 #[allow(missing_docs)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -156,10 +146,18 @@ mod tests {
     }
 
     #[test]
-    fn theme_id_rejects_invalid_ids() {
+    fn theme_id_rejects_an_empty_id() {
         assert_eq!(ThemeId::parse(""), Err(IdProblem::Empty));
+    }
+
+    #[test]
+    fn theme_id_rejects_characters_outside_lowercase_ascii() {
         assert_eq!(ThemeId::parse("NORD"), Err(IdProblem::BadChar('N')));
         assert_eq!(ThemeId::parse("nord-å"), Err(IdProblem::BadChar('å')));
+    }
+
+    #[test]
+    fn theme_id_rejects_a_leading_hyphen() {
         assert_eq!(ThemeId::parse("-nord"), Err(IdProblem::BadChar('-')));
     }
 

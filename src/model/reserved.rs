@@ -1,9 +1,7 @@
-//! The omp built-in theme names a user theme may not take (R-6).
+//! The omp built-in theme names no user theme may take.
 //!
-//! Provenance: omp 18.3.2, the registry built from `packages/tui/src/theme/dark.json`,
-//! `packages/tui/src/theme/light.json`, and `packages/tui/src/theme/defaults/*.json` in
-//! the installed binary. omp resolves built-ins before custom theme files, so a custom
-//! theme with one of these ids could never be selected.
+//! Taken from the registry of omp 18.3.2 (`packages/tui/src/theme/*.json` in the
+//! installed binary), which resolves built-ins before custom theme files.
 
 const OMP_BUILTIN_THEMES: [&str; 101] = [
     "alabaster",
@@ -109,8 +107,7 @@ const OMP_BUILTIN_THEMES: [&str; 101] = [
     "titanium",
 ];
 
-/// Whether `name` is an omp built-in theme name; the match is exact.
-pub fn is_omp_builtin(name: &str) -> bool {
+pub(crate) fn is_omp_builtin(name: &str) -> bool {
     OMP_BUILTIN_THEMES.contains(&name)
 }
 

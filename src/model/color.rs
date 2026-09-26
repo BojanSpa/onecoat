@@ -1,10 +1,10 @@
-//! The colour type: parsed at the boundary, never re-parsed by a renderer.
+//! sRGB colours, parsed once at the boundary.
 
 use std::fmt;
 
 use serde::{Serialize, Serializer};
 
-/// An opaque sRGB colour, written as `#rrggbb`.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct HexColor {
     r: u8,
@@ -13,10 +13,7 @@ pub struct HexColor {
 }
 
 impl HexColor {
-    /// Parses `#` followed by exactly six hex digits, either case.
-    ///
-    /// `#rgb` and `#rrggbbaa` are rejected, because Windows Terminal rejects them.
-    pub fn parse(raw: &str) -> Option<Self> {
+    pub(crate) fn parse(raw: &str) -> Option<Self> {
         let digits = raw.strip_prefix('#')?;
         if digits.len() != 6 || !digits.bytes().all(|byte| byte.is_ascii_hexdigit()) {
             return None;
@@ -30,16 +27,11 @@ impl HexColor {
         })
     }
 
-    /// Builds a colour from its channels.
-    ///
-    /// Parse a file instead wherever possible; `validate` uses this only to fill
-    /// palette slots that are overwritten in the same pass.
     pub(crate) const fn from_rgb(r: u8, g: u8, b: u8) -> Self {
         Self { r, g, b }
     }
 
-    /// WCAG 2.x relative luminance of the linearised sRGB channels, in `0.0..=1.0`.
-    pub fn luminance(self) -> f64 {
+    pub(crate) fn luminance(self) -> f64 {
         fn linearise(channel: u8) -> f64 {
             let value = f64::from(channel) / 255.0;
             if value <= 0.04045 {

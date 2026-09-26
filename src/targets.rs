@@ -1,18 +1,13 @@
-//! Path resolution: the platform edge (N-5).
-//!
-//! Both roots are resolved for every command, so there is exactly one path-resolution
-//! path and a missing environment variable is reported the same way everywhere.
+//! Where onecoat's files live.
 
 use std::env;
 use std::path::PathBuf;
 
 use crate::Error;
 
-/// The paths onecoat reads and writes.
+#[allow(missing_docs)]
 pub struct Paths {
-    /// `%LOCALAPPDATA%\Microsoft\Windows Terminal\Fragments\onecoat\schemes.json`.
     pub wt_fragment: PathBuf,
-    /// `%APPDATA%\onecoat\themes`.
     pub user_themes: PathBuf,
 }
 

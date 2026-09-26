@@ -1,17 +1,12 @@
 //! Base16 role derivation shared by every renderer.
-//!
-//! [`derived_ansi`] is the single place renderers get the Windows Terminal role set
-//! from; a renderer reads a role and never re-derives one, and `[ansi]` overrides are
-//! applied on top of its result.
 
 use crate::model::palette::{AnsiSet, AnsiSlot, Base16Entry, Palette};
 
-/// Derives the Windows Terminal ANSI set from a palette.
+#[allow(missing_docs)]
 pub fn derived_ansi(palette: &Palette) -> AnsiSet {
     AnsiSet::from(AnsiSlot::ALL.map(|slot| palette[source_entry(slot)]))
 }
 
-/// The base16 entry each Windows Terminal role is derived from.
 fn source_entry(slot: AnsiSlot) -> Base16Entry {
     match slot {
         AnsiSlot::Black => Base16Entry::B00,

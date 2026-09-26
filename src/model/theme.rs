@@ -1,9 +1,4 @@
 //! The theme document and its two phases: [`Parsed`] and [`Validated`].
-//!
-//! [`Theme::parse`] checks the *shape* of the document: which keys exist, and whether
-//! each one has the TOML type the schema requires. Everything that needs a value to be
-//! interpreted — colours, completeness, luminance, reserved ids — is
-//! [`validate`](crate::validate)'s job, so a parse error never depends on a value.
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -16,13 +11,12 @@ use crate::model::color::HexColor;
 use crate::model::ids::{Appearance, IdProblem, Origin, ThemeId};
 use crate::model::palette::{AnsiSet, Palette};
 
-/// A stage in a theme's life; see [`Parsed`] and [`Validated`].
+#[allow(missing_docs)]
 pub trait Phase {
-    /// The data the stage carries.
     type Data;
 }
 
-/// The phase right after parsing: values are typed, but not yet interpreted.
+#[allow(missing_docs)]
 #[derive(Debug)]
 pub struct Parsed;
 
@@ -30,7 +24,7 @@ impl Phase for Parsed {
     type Data = RawTheme;
 }
 
-/// The phase after validation: every value is checked and interpreted.
+#[allow(missing_docs)]
 #[derive(Debug)]
 pub struct Validated;
 
@@ -38,7 +32,6 @@ impl Phase for Validated {
     type Data = ThemeData;
 }
 
-/// A theme document, parameterised by how far it has been processed.
 #[allow(missing_docs)]
 #[derive(Debug)]
 pub struct Theme<P: Phase> {
@@ -51,7 +44,6 @@ pub struct Theme<P: Phase> {
     pub data: P::Data,
 }
 
-/// Exactly what the TOML said, keyed and typed but not yet interpreted.
 #[allow(missing_docs)]
 #[derive(Debug)]
 pub struct RawTheme {
@@ -60,7 +52,6 @@ pub struct RawTheme {
     pub targets: BTreeMap<String, BTreeMap<String, Value>>,
 }
 
-/// Interpreted values; only renderers read this.
 #[allow(missing_docs)]
 #[derive(Debug)]
 pub struct ThemeData {
@@ -71,23 +62,15 @@ pub struct ThemeData {
     pub herdr: BTreeMap<String, OverrideValue>,
 }
 
-/// The four Windows Terminal scheme colours a theme may override.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct WtOverrides {
-    /// `background`, defaulting to `base00`.
     pub background: Option<HexColor>,
-    /// `foreground`, defaulting to `base05`.
     pub foreground: Option<HexColor>,
-    /// `cursorColor`, defaulting to `base0D`.
     pub cursor_color: Option<HexColor>,
-    /// `selectionBackground`, defaulting to `base02`.
     pub selection_background: Option<HexColor>,
 }
 
-/// A `[targets.*]` value; base16 cannot express these.
-///
-/// There is no parser method: [`validate`](crate::validate) builds these three cases
-/// directly from the raw [`Value`], because the failure message differs per case.
 #[allow(missing_docs)]
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum OverrideValue {
@@ -107,9 +90,7 @@ const ROOT_KEYS: [&str; 7] = [
 ];
 
 impl Theme<Parsed> {
-    /// Parses `source` as a theme file.
-    ///
-    /// IO-free: the caller supplies the file's bytes and the path used in diagnostics.
+    #[allow(missing_docs)]
     pub fn parse(path: PathBuf, source: &str, origin: Origin) -> Result<Self, Error> {
         let table = source
             .parse::<toml::Table>()
@@ -243,8 +224,6 @@ fn type_name(value: &Value) -> &'static str {
     }
 }
 
-/// Copies a TOML table into a map ordered by key; the order decides which of two
-/// spellings of one base16 entry is reported during validation.
 fn to_map(table: &toml::Table) -> BTreeMap<String, Value> {
     table
         .iter()
@@ -260,7 +239,6 @@ mod tests {
     use crate::error::Error;
     use crate::model::ids::{Appearance, Origin};
 
-    /// A minimal document that parses and validates.
     const VALID: &str = include_str!("../../tests/fixtures/themes/overrides.toml");
 
     #[test]

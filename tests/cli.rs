@@ -1,7 +1,4 @@
 //! End-to-end tests for the CLI.
-//!
-//! Every test spawns the real binary with `LOCALAPPDATA` and `APPDATA` pointed at a fresh
-//! temporary root, so the live Windows Terminal files are never touched (N-4).
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -9,7 +6,6 @@ use std::time::SystemTime;
 
 use tempfile::TempDir;
 
-/// A temporary environment root and the binary that runs against it.
 struct Sandbox {
     root: TempDir,
 }
@@ -34,7 +30,6 @@ impl Sandbox {
         self.root.path()
     }
 
-    /// The fragment path onecoat derives from `LOCALAPPDATA`.
     fn fragment(&self) -> PathBuf {
         self.root
             .path()
@@ -45,7 +40,6 @@ impl Sandbox {
             .join("schemes.json")
     }
 
-    /// The user theme directory onecoat derives from `APPDATA`.
     fn themes(&self) -> PathBuf {
         self.root.path().join("onecoat").join("themes")
     }
@@ -58,7 +52,6 @@ impl Sandbox {
         path
     }
 
-    /// Puts a fixture at the fragment path, as if a previous apply had written it.
     fn install_fragment(&self, fixture: &str) -> PathBuf {
         let fragment = self.fragment();
         std::fs::create_dir_all(fragment.parent().unwrap()).unwrap();
@@ -94,13 +87,11 @@ fn code(output: &Output) -> i32 {
     output.status.code().unwrap()
 }
 
-/// A file's size and modification time.
 fn stamp(path: &Path) -> (u64, SystemTime) {
     let metadata = std::fs::metadata(path).unwrap();
     (metadata.len(), metadata.modified().unwrap())
 }
 
-/// Every entry under `root`, as paths relative to it, sorted.
 fn tree(root: &Path) -> Vec<String> {
     fn walk(root: &Path, dir: &Path, found: &mut Vec<String>) {
         for entry in std::fs::read_dir(dir).unwrap() {
@@ -334,7 +325,6 @@ fn writes_stay_inside_the_fragment_directory() {
     expected.sort();
     assert_eq!(tree(sandbox.root()), expected);
 
-    // With a fragment already in place, the backup is the only extra entry (R-11).
     let sandbox = Sandbox::new();
     sandbox.install_fragment("wt/previous-fragment.json");
     let output = sandbox.run(&["use", "nord"]);

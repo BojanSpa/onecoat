@@ -1,7 +1,4 @@
 //! The Windows Terminal colour scheme.
-//!
-//! The magenta role is `purple` and `brightPurple`, because that is what the schema
-//! says.
 
 use serde::Serialize;
 
@@ -10,10 +7,6 @@ use crate::model::ids::Slot;
 use crate::model::palette::{AnsiSlot, Base16Entry};
 use crate::model::theme::{Theme, Validated};
 
-/// One colour scheme; the field order is the key order in the fragment file.
-///
-/// The field names are Windows Terminal's own scheme keys, spelled exactly as its
-/// schema defines them, so the struct is the only place a key can be misspelled.
 #[allow(non_snake_case)]
 #[derive(Serialize)]
 struct WtScheme {
@@ -40,17 +33,14 @@ struct WtScheme {
     brightWhite: HexColor,
 }
 
-/// The Windows Terminal fragment onecoat owns.
+#[allow(missing_docs)]
 #[derive(Serialize)]
 pub struct WtFragment {
     schemes: Vec<WtScheme>,
 }
 
 impl WtFragment {
-    /// Renders the theme's declared slot as one scheme named `onecoat-<slot>`.
-    ///
-    /// The name is stable across theme switches, because it depends on the slot and not
-    /// on the theme.
+    #[allow(missing_docs)]
     pub fn for_theme(theme: &Theme<Validated>) -> Self {
         let data = &theme.data;
         let palette = &data.palette;

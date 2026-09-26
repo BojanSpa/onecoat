@@ -1,8 +1,4 @@
-//! The one error type of the crate (R-42).
-//!
-//! Every `#[error]` string names the file that failed, the offending key where there is
-//! one, and the action that resolves the problem, so a diagnostic is actionable without
-//! consulting the source.
+//! The one error type onecoat returns.
 
 use std::{io, path::PathBuf};
 

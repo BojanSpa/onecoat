@@ -1,8 +1,4 @@
-//! The executor: the only code in the crate that touches files.
-//!
-//! Per write the order is: compare, create the parent directory, write a temporary file,
-//! back up the previous content, then replace. Because the backup and the replace come
-//! last, any failure leaves the target file byte-identical to what it was.
+//! Writes a plan's files to disk.
 
 use std::fs;
 use std::io::{self, Write};
@@ -19,8 +15,6 @@ const BACKUP_SUFFIX: &str = ".onecoat.bak";
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum WriteOutcome {
     Written,
-    /// The file already held the planned bytes; neither the file nor its backup was
-    /// touched (R-9).
     Unchanged,
 }
 
@@ -32,12 +26,11 @@ pub struct WriteReport {
     pub outcome: WriteOutcome,
 }
 
-/// Executes every write of the plan in order; the first failure stops it.
+#[allow(missing_docs)]
 pub fn execute(plan: &Plan) -> Result<Vec<WriteReport>, Error> {
     plan.writes.iter().map(write_one).collect()
 }
 
-/// Writes one file, or reports it as unchanged (R-9).
 fn write_one(planned: &PlannedWrite) -> Result<WriteReport, Error> {
     let path = planned.path.as_path();
     let existing = match fs::read(path) {
@@ -68,7 +61,7 @@ fn write_one(planned: &PlannedWrite) -> Result<WriteReport, Error> {
     let temp = append_to_file_name(path, TEMP_SUFFIX);
     let backup = append_to_file_name(path, BACKUP_SUFFIX);
 
-    if let Err(source) = write_new(&temp, &planned.bytes) {
+    if let Err(source) = create_synced(&temp, &planned.bytes) {
         let _ = fs::remove_file(&temp);
         return Err(Error::FileWriteFailed { path: temp, source });
     }
@@ -95,8 +88,7 @@ fn write_one(planned: &PlannedWrite) -> Result<WriteReport, Error> {
     })
 }
 
-/// Creates `path` and writes `bytes`, synced to disk before it is renamed.
-fn write_new(path: &Path, bytes: &[u8]) -> io::Result<()> {
+fn create_synced(path: &Path, bytes: &[u8]) -> io::Result<()> {
     let mut file = fs::File::create(path)?;
     file.write_all(bytes)?;
     file.sync_all()

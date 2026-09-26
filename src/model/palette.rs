@@ -4,10 +4,6 @@ use std::ops::{Index, IndexMut};
 
 use crate::model::color::HexColor;
 
-/// One of the sixteen base16 entries, in canonical order.
-///
-/// The role each entry plays is defined by its name and read from
-/// [`crate::rolemap`], not repeated here.
 #[allow(missing_docs)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Base16Entry {
@@ -29,8 +25,8 @@ pub enum Base16Entry {
     B0F,
 }
 
+#[allow(missing_docs)]
 impl Base16Entry {
-    /// The sixteen entries in canonical order, `base00` through `base0F`.
     pub const ALL: [Self; 16] = [
         Self::B00,
         Self::B01,
@@ -50,7 +46,6 @@ impl Base16Entry {
         Self::B0F,
     ];
 
-    /// The canonical key of this entry, `base00` through `base0F`.
     pub fn name(self) -> &'static str {
         match self {
             Self::B00 => "base00",
@@ -72,7 +67,6 @@ impl Base16Entry {
         }
     }
 
-    /// Resolves `key` case-insensitively, so `base0a` and `base0A` mean the same entry.
     pub fn from_name(key: &str) -> Option<Self> {
         Self::ALL
             .into_iter()
@@ -84,7 +78,7 @@ impl Base16Entry {
     }
 }
 
-/// A complete base16 palette.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Palette([HexColor; 16]);
 
@@ -102,10 +96,6 @@ impl Index<Base16Entry> for Palette {
     }
 }
 
-/// One of the sixteen Windows Terminal scheme keys.
-///
-/// The magenta role is spelled `purple` and `brightPurple`, because that is the key
-/// Windows Terminal's schema defines.
 #[allow(missing_docs)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum AnsiSlot {
@@ -127,8 +117,8 @@ pub enum AnsiSlot {
     BrightWhite,
 }
 
+#[allow(missing_docs)]
 impl AnsiSlot {
-    /// The sixteen slots in scheme-key order.
     pub const ALL: [Self; 16] = [
         Self::Black,
         Self::Red,
@@ -148,7 +138,6 @@ impl AnsiSlot {
         Self::BrightWhite,
     ];
 
-    /// The Windows Terminal scheme key of this slot.
     pub fn name(self) -> &'static str {
         match self {
             Self::Black => "black",
@@ -170,7 +159,6 @@ impl AnsiSlot {
         }
     }
 
-    /// Resolves a Windows Terminal scheme key; the match is exact, as WT's is.
     pub fn from_name(key: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|slot| slot.name() == key)
     }
@@ -180,7 +168,7 @@ impl AnsiSlot {
     }
 }
 
-/// The sixteen Windows Terminal ANSI colours of a theme.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct AnsiSet([HexColor; 16]);
 

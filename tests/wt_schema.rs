@@ -1,9 +1,7 @@
 //! Validates the rendered fragment against Windows Terminal's own JSON schema.
 //!
-//! The schema at `tests/fixtures/wt/profiles.schema.json` is vendored unmodified from
-//! `https://raw.githubusercontent.com/microsoft/terminal/v1.24.11911.0/doc/cascadia/profiles.schema.json`
-//! and is the same file Windows Terminal 1.24.11911.0 ships, so the check derives its
-//! expectations from Windows Terminal rather than from onecoat's renderer.
+//! The vendored `tests/fixtures/wt/profiles.schema.json` is Windows Terminal
+//! 1.24.11911.0's own file, unmodified.
 
 use std::path::PathBuf;
 
@@ -26,10 +24,6 @@ fn fixture(name: &str) -> Vec<u8> {
     std::fs::read(path).unwrap()
 }
 
-/// A fragment as the settings document the schema's root accepts.
-///
-/// The root requires `profiles`, `schemes`, and `defaultProfile`, so a bare fragment
-/// cannot be validated on its own; `ProfileList` accepts an empty array.
 fn settings_with(schemes: &Value) -> Value {
     json!({
         "profiles": [],
@@ -38,7 +32,6 @@ fn settings_with(schemes: &Value) -> Value {
     })
 }
 
-/// A validator for the vendored schema, built without network access (N-1).
 fn validator() -> jsonschema::Validator {
     jsonschema::options().offline().build(&schema()).unwrap()
 }
