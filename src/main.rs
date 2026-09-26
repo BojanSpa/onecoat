@@ -18,7 +18,6 @@ use onecoat::render::wt::WtFragment;
 use onecoat::targets::Paths;
 use onecoat::themes::ThemeSet;
 
-// Apply one canonical theme to Windows Terminal, Herdr, and the omp harness.
 #[derive(Parser)]
 #[command(
     name = "onecoat",
@@ -33,22 +32,21 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// List the available themes and where each one comes from
+    #[command(about = "List the available themes and where each one comes from")]
     List(ReadArgs),
-    /// Apply a theme to the current slot
+    #[command(about = "Apply a theme to the current slot")]
     Use(UseArgs),
 }
 
 #[derive(Args)]
 struct ReadArgs {
-    /// Print machine-readable JSON on stdout
-    #[arg(long)]
+    #[arg(long, help = "Print machine-readable JSON on stdout")]
     json: bool,
 }
 
 #[derive(Args)]
 struct UseArgs {
-    /// Theme id, as printed by `onecoat list`
+    #[arg(help = "Theme id, as printed by `onecoat list`")]
     id: ThemeId,
 }
 
