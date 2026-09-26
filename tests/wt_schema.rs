@@ -1,8 +1,3 @@
-//! Validates the rendered fragment against Windows Terminal's own JSON schema.
-//!
-//! The vendored `tests/fixtures/wt/profiles.schema.json` is Windows Terminal
-//! 1.24.11911.0's own file, unmodified.
-
 use std::path::PathBuf;
 
 use serde_json::{Value, json};

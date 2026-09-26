@@ -1,8 +1,3 @@
-//! The omp built-in theme names no user theme may take.
-//!
-//! Taken from the registry of omp 18.3.2 (`packages/tui/src/theme/*.json` in the
-//! installed binary), which resolves built-ins before custom theme files.
-
 const OMP_BUILTIN_THEMES: [&str; 101] = [
     "alabaster",
     "amethyst",

@@ -20,6 +20,7 @@
 
 # Code style
 
+- Don't write comments, write self-evident code instead; contracts that code cannot carry live in `docs/architecture.md`.
 - Newtype domain values; parse at the boundary so validation happens exactly once.
 - Encode state as enums, not booleans: illegal states should be unrepresentable.
 - Model phases with typestate: `Parsed`, `Validated`, `Written` are distinct types, not flags.
@@ -57,7 +58,7 @@ cargo test --all-targets
 RUSTDOCFLAGS="-D warnings" cargo doc --no-deps
 ```
 
-- Public items documented.
+- Public items documented where their name cannot say it; `#[allow(missing_docs)]` marks the rest.
 - Behavior proven by running the real binary, not tests alone.
 - No new `unsafe` without a safety justification.
 - No dead code, stubs, `#[allow(dead_code)]`, or leftover TODO markers.

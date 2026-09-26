@@ -1,5 +1,3 @@
-//! End-to-end tests for the CLI.
-
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::time::SystemTime;
