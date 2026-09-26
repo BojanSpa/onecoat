@@ -57,8 +57,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
               throw 'the release build failed'
           }
-          $found = findstr /M /C:VCRUNTIME140 target\release\onecoat.exe
-          if ($LASTEXITCODE -eq 0) {
-              throw "the release binary imports the dynamic CRT: $found"
+          $binary = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes('target\release\onecoat.exe'))
+          if ($binary -match 'VCRUNTIME140') {
+              throw 'the release binary imports the dynamic CRT'
           }
           Write-Host 'N-2: the release binary does not import VCRUNTIME140'
