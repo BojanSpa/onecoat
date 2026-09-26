@@ -151,6 +151,7 @@ Overrides are the only place target-specific color literals may appear; everythi
 
 `Theme::parse` checks the shape of a document — which keys exist and whether each holds the TOML type the schema requires — and `validate` interprets the values, so a parse error never depends on a value.<br>
 `validate` runs its checks in a fixed order, so a broken file yields one predictable message: palette keys and completeness, palette colors, appearance against `base00`'s luminance, id against the omp built-ins, `[ansi]`, `[targets.wt]`, then the remaining target sections in section-name order.<br>
+The reserved names are omp 18.3.2's own registry (`packages/tui/src/theme/*.json` in the installed binary), which resolves built-ins before custom theme files.<br>
 
 The theme set is the bundled themes followed by `<APPDATA>\onecoat\themes\*.toml` in file-name order:<br>
 
@@ -231,7 +232,7 @@ The regression bar for import is a re-render test: import a fixture, apply it, a
 - Golden tests snapshot whole files and assert the number of changed hunks equals the number of owned keys, so an unintended rewrite fails loudly.
 - Every writer test is paired with an idempotency test: apply twice, assert byte equality and that the second run performed no writes.
 - Herdr output is validated by spawning `herdr config check` with `APPDATA` pointed at a fixture directory.
-- Windows Terminal output is validated against a vendored, version-pinned `profiles.schema.json`.
+- Windows Terminal output is validated against a vendored `profiles.schema.json` — Windows Terminal 1.24.11911.0's own file, unmodified.
 - omp output is checked for token completeness and, in the smoke test, by launching `omp` under an isolated profile and asserting no theme error.
 - The end-to-end smoke test runs the release binary against the real machine: apply, verify, then restore from backups and assert the restore is byte-identical.
 
