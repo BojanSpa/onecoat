@@ -54,7 +54,11 @@ jobs:
       - name: Release binary is static (N-2)
         run: |
           cargo build --release
-          findstr /M /C:VCRUNTIME140 target\release\onecoat.exe
-          if ($LASTEXITCODE -eq 0) {
-              throw 'the release binary imports the dynamic CRT'
+          if ($LASTEXITCODE -ne 0) {
+              throw 'the release build failed'
           }
+          $found = findstr /M /C:VCRUNTIME140 target\release\onecoat.exe
+          if ($LASTEXITCODE -eq 0) {
+              throw "the release binary imports the dynamic CRT: $found"
+          }
+          Write-Host 'N-2: the release binary does not import VCRUNTIME140'
