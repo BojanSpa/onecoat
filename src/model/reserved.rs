@@ -1,0 +1,132 @@
+//! The omp built-in theme names a user theme may not take (R-6).
+//!
+//! Provenance: omp 18.3.2, the registry built from `packages/tui/src/theme/dark.json`,
+//! `packages/tui/src/theme/light.json`, and `packages/tui/src/theme/defaults/*.json` in
+//! the installed binary. omp resolves built-ins before custom theme files, so a custom
+//! theme with one of these ids could never be selected.
+
+/// The 101 names omp ships as built-in themes.
+pub const OMP_BUILTIN_THEMES: [&str; 101] = [
+    "alabaster",
+    "amethyst",
+    "anthracite",
+    "basalt",
+    "birch",
+    "dark",
+    "dark-abyss",
+    "dark-arctic",
+    "dark-aurora",
+    "dark-catppuccin",
+    "dark-cavern",
+    "dark-celestial",
+    "dark-copper",
+    "dark-cosmos",
+    "dark-cyberpunk",
+    "dark-dracula",
+    "dark-eclipse",
+    "dark-ember",
+    "dark-equinox",
+    "dark-forest",
+    "dark-github",
+    "dark-gruvbox",
+    "dark-lavender",
+    "dark-lunar",
+    "dark-midnight",
+    "dark-monochrome",
+    "dark-monokai",
+    "dark-nebula",
+    "dark-nord",
+    "dark-ocean",
+    "dark-one",
+    "dark-poimandres",
+    "dark-rainforest",
+    "dark-reef",
+    "dark-retro",
+    "dark-rose-pine",
+    "dark-sakura",
+    "dark-slate",
+    "dark-solarized",
+    "dark-solstice",
+    "dark-starfall",
+    "dark-sunset",
+    "dark-swamp",
+    "dark-synthwave",
+    "dark-taiga",
+    "dark-terminal",
+    "dark-tokyo-night",
+    "dark-tundra",
+    "dark-twilight",
+    "dark-volcanic",
+    "graphite",
+    "light",
+    "light-arctic",
+    "light-aurora-day",
+    "light-canyon",
+    "light-catppuccin",
+    "light-cirrus",
+    "light-coral",
+    "light-cyberpunk",
+    "light-dawn",
+    "light-dunes",
+    "light-eucalyptus",
+    "light-forest",
+    "light-frost",
+    "light-github",
+    "light-glacier",
+    "light-gruvbox",
+    "light-haze",
+    "light-honeycomb",
+    "light-lagoon",
+    "light-lavender",
+    "light-meadow",
+    "light-mint",
+    "light-monochrome",
+    "light-ocean",
+    "light-one",
+    "light-opal",
+    "light-orchard",
+    "light-paper",
+    "light-poimandres",
+    "light-prism",
+    "light-retro",
+    "light-sand",
+    "light-savanna",
+    "light-solarized",
+    "light-soleil",
+    "light-sunset",
+    "light-synthwave",
+    "light-tokyo-night",
+    "light-wetland",
+    "light-zenith",
+    "limestone",
+    "mahogany",
+    "marble",
+    "obsidian",
+    "onyx",
+    "pearl",
+    "porcelain",
+    "quartz",
+    "sandstone",
+    "titanium",
+];
+
+/// Whether `name` is an omp built-in theme name; the match is exact.
+pub fn is_omp_builtin(name: &str) -> bool {
+    OMP_BUILTIN_THEMES.contains(&name)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{OMP_BUILTIN_THEMES, is_omp_builtin};
+
+    #[test]
+    fn reserved_names_cover_every_builtin() {
+        assert_eq!(OMP_BUILTIN_THEMES.len(), 101);
+        for name in ["titanium", "dark", "dark-nord", "light-zenith"] {
+            assert!(is_omp_builtin(name), "{name} must be reserved");
+        }
+        for name in ["nord", "onecoat-dark"] {
+            assert!(!is_omp_builtin(name), "{name} must stay free");
+        }
+    }
+}
