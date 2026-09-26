@@ -114,7 +114,6 @@ impl fmt::Display for Appearance {
     }
 }
 
-/// A program onecoat writes to.
 #[allow(missing_docs)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Target {
