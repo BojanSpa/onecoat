@@ -123,35 +123,61 @@ fn print_json(themes: &ThemeSet) -> Result<(), Error> {
     Ok(())
 }
 
-/// Pads the first three columns to their widest cell; `name` is last and bare, so no
-/// line has a trailing space.
-fn print_table(themes: &ThemeSet) {
-    let mut rows: Vec<[String; 4]> = vec![[
-        "id".to_owned(),
-        "appearance".to_owned(),
-        "origin".to_owned(),
-        "name".to_owned(),
-    ]];
-    for theme in themes.iter() {
-        rows.push([
-            theme.id.to_string(),
-            Slot::from(theme.appearance).name().to_owned(),
-            origin_name(theme.origin).to_owned(),
-            theme.name.clone(),
-        ]);
+struct TableRow {
+    id: String,
+    appearance: &'static str,
+    origin: &'static str,
+    name: String,
+}
+
+impl TableRow {
+    fn of(theme: &Theme<Validated>) -> Self {
+        Self {
+            id: theme.id.to_string(),
+            appearance: Slot::from(theme.appearance).name(),
+            origin: origin_name(theme.origin),
+            name: theme.name.clone(),
+        }
     }
-    let widths =
-        [0, 1, 2].map(|column| rows.iter().map(|row| row[column].len()).max().unwrap_or(0));
+
+    fn header() -> Self {
+        Self {
+            id: "id".to_owned(),
+            appearance: "appearance",
+            origin: "origin",
+            name: "name".to_owned(),
+        }
+    }
+}
+
+fn print_table(themes: &ThemeSet) {
+    let rows: Vec<TableRow> = std::iter::once(TableRow::header())
+        .chain(themes.iter().map(TableRow::of))
+        .collect();
+    let widest = |cell: fn(&TableRow) -> &str| {
+        rows.iter()
+            .map(cell)
+            .map(|text| text.chars().count())
+            .max()
+            .unwrap_or(0)
+    };
+    let (id_width, appearance_width, origin_width) = (
+        widest(|row| &row.id),
+        widest(|row| row.appearance),
+        widest(|row| row.origin),
+    );
     for row in &rows {
+        // A theme's name may be empty, and it is the bare last cell, so trim the
+        // separator space that would otherwise end the line.
         let line = format!(
             "{:<id$} {:<appearance$} {:<origin$} {}",
-            row[0],
-            row[1],
-            row[2],
-            row[3],
-            id = widths[0],
-            appearance = widths[1],
-            origin = widths[2]
+            row.id,
+            row.appearance,
+            row.origin,
+            row.name,
+            id = id_width,
+            appearance = appearance_width,
+            origin = origin_width
         );
         println!("{}", line.trim_end());
     }
