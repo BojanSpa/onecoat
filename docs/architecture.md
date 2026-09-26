@@ -61,6 +61,10 @@ src/state.rs         config, state, drift re-derivation
 src/coherence.rs     role equality and perceptual spacing
 src/appearance.rs    registry read + notification
 src/targets.rs       path resolution, binary/socket discovery
+src/error.rs         the error enum and the R-42 message contract
+src/themes.rs        bundled registry, load and shadowing
+themes/nord.toml     the bundled theme source
+tests/fixtures/      vendored Windows Terminal schema and theme fixtures
 ```
 
 ## Types
@@ -128,9 +132,9 @@ base0D = "#81A1C1"        # functions, blue
 base0E = "#B48EAD"        # keywords, magenta
 base0F = "#BF616A"        # deprecated, brown
 
-[ansi]                    # optional; overrides the derived Windows Terminal ANSI set
+[ansi]                    # optional; keys are Windows Terminal's scheme keys, so the magenta role is spelled `purple`/`brightPurple`
 
-[targets.wt]              # optional per-target overrides
+[targets.wt]              # optional; keys are `background`, `foreground`, `cursorColor`, `selectionBackground`
 cursorColor = "#D8DEE9"
 
 [targets.herdr]           # optional; "terminal" makes panes inherit the host ANSI palette

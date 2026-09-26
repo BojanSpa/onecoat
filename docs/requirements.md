@@ -23,7 +23,7 @@ Out of scope: remote/SSH Herdr clients; Windows Terminal window themes delivered
 
 - R-1 A theme is TOML with `id`, `name`, `appearance` (`dark` or `light`), `palette` (base16 `base00`–`base0F`), optional `[ansi]`, and optional `[targets.wt]`, `[targets.herdr]`, `[targets.omp]` overrides. Verified by: parse test over every bundled theme.
 - R-2 All sixteen palette entries are required and parse as colors; a missing or malformed entry names the offending token. Verified by: error-case unit tests.
-- R-3 `appearance` must agree with the luminance of `base00`; a dark theme with a light background is rejected. Verified by: inverted-pair test.
+- R-3 `appearance` must agree with the luminance of `base00`; a dark theme with a light background is rejected. Luminance is WCAG relative luminance; `light` requires ≥ 0.5 and `dark` requires < 0.5. Verified by: inverted-pair test.
 - R-4 `validate` warns when adjacent surfaces (`base00`/`base01`/`base02`) are perceptually indistinguishable, and fails under `--strict`. Verified by: too-close surface pair.
 - R-5 User themes in `<config>/themes/*.toml` shadow bundled themes by `id`; `list` reports each theme's origin. Verified by: shadowing fixture.
 - R-6 Theme ids must not collide with omp built-in theme names (`dark`, `light`, `titanium`, …), because built-ins win over custom files. Verified by: rejecting such an id.
