@@ -1,7 +1,7 @@
 //! The Windows Terminal colour scheme.
 //!
-//! This module is the only place where Windows Terminal's key spellings exist: the
-//! magenta role is `purple` and `brightPurple`, because that is what the schema says.
+//! The magenta role is `purple` and `brightPurple`, because that is what the schema
+//! says.
 
 use serde::Serialize;
 
@@ -14,37 +14,36 @@ use crate::model::theme::{Theme, Validated};
 ///
 /// The field names are Windows Terminal's own scheme keys, spelled exactly as its
 /// schema defines them, so the struct is the only place a key can be misspelled.
-#[allow(non_snake_case, missing_docs)]
+#[allow(non_snake_case)]
 #[derive(Serialize)]
-pub struct WtScheme {
-    pub name: String,
-    pub background: HexColor,
-    pub foreground: HexColor,
-    pub cursorColor: HexColor,
-    pub selectionBackground: HexColor,
-    pub black: HexColor,
-    pub red: HexColor,
-    pub green: HexColor,
-    pub yellow: HexColor,
-    pub blue: HexColor,
-    pub purple: HexColor,
-    pub cyan: HexColor,
-    pub white: HexColor,
-    pub brightBlack: HexColor,
-    pub brightRed: HexColor,
-    pub brightGreen: HexColor,
-    pub brightYellow: HexColor,
-    pub brightBlue: HexColor,
-    pub brightPurple: HexColor,
-    pub brightCyan: HexColor,
-    pub brightWhite: HexColor,
+struct WtScheme {
+    name: String,
+    background: HexColor,
+    foreground: HexColor,
+    cursorColor: HexColor,
+    selectionBackground: HexColor,
+    black: HexColor,
+    red: HexColor,
+    green: HexColor,
+    yellow: HexColor,
+    blue: HexColor,
+    purple: HexColor,
+    cyan: HexColor,
+    white: HexColor,
+    brightBlack: HexColor,
+    brightRed: HexColor,
+    brightGreen: HexColor,
+    brightYellow: HexColor,
+    brightBlue: HexColor,
+    brightPurple: HexColor,
+    brightCyan: HexColor,
+    brightWhite: HexColor,
 }
 
 /// The Windows Terminal fragment onecoat owns.
-#[allow(missing_docs)]
 #[derive(Serialize)]
 pub struct WtFragment {
-    pub schemes: Vec<WtScheme>,
+    schemes: Vec<WtScheme>,
 }
 
 impl WtFragment {
@@ -97,7 +96,6 @@ mod tests {
     use crate::model::palette::{AnsiSlot, Base16Entry};
     use crate::model::theme::{Theme, Validated};
 
-    /// Parses and validates a theme source.
     fn theme(name: &str, source: &str) -> Theme<Validated> {
         Theme::parse(
             PathBuf::from(format!("themes/{name}.toml")),

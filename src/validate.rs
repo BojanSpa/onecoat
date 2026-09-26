@@ -10,7 +10,7 @@ use std::path::Path;
 
 use toml::Value;
 
-use crate::error::{Error, names};
+use crate::error::{Error, accepted_keys};
 use crate::model::color::HexColor;
 use crate::model::ids::Appearance;
 use crate::model::palette::{AnsiSlot, Base16Entry, Palette};
@@ -138,7 +138,7 @@ impl Theme<Parsed> {
                             path,
                             section: "[targets.wt]",
                             key: other.to_owned(),
-                            accepted: names(&WT_KEYS),
+                            accepted: accepted_keys(&WT_KEYS),
                         });
                     }
                 };
@@ -159,7 +159,7 @@ impl Theme<Parsed> {
                         path,
                         section: "[targets]",
                         key: other.to_owned(),
-                        accepted: names(&TARGET_SECTIONS),
+                        accepted: accepted_keys(&TARGET_SECTIONS),
                     });
                 }
             };
@@ -200,7 +200,7 @@ fn palette_unknown(path: &Path, key: &str) -> Error {
         path: path.to_path_buf(),
         section: "[palette]",
         key: key.to_owned(),
-        accepted: names(&Base16Entry::ALL.map(Base16Entry::name)),
+        accepted: accepted_keys(&Base16Entry::ALL.map(Base16Entry::name)),
     }
 }
 
@@ -209,7 +209,7 @@ fn ansi_unknown(path: &Path, key: &str) -> Error {
         path: path.to_path_buf(),
         section: "[ansi]",
         key: key.to_owned(),
-        accepted: names(&AnsiSlot::ALL.map(AnsiSlot::name)),
+        accepted: accepted_keys(&AnsiSlot::ALL.map(AnsiSlot::name)),
     }
 }
 
@@ -286,23 +286,20 @@ mod tests {
     use crate::model::palette::{AnsiSlot, Base16Entry};
     use crate::model::theme::{OverrideValue, Theme, Validated};
 
-    /// Parses and validates a theme the way `ThemeSet` would.
-    fn validate(name: &str, source: &str) -> Result<Theme<Validated>, Error> {
+    fn validate_like_themeset(name: &str, source: &str) -> Result<Theme<Validated>, Error> {
         let path = PathBuf::from(format!("tests/fixtures/themes/{name}"));
         Theme::parse(path, source, Origin::User)?.validate()
     }
 
-    /// The bytes of one fixture under `tests/fixtures/themes`.
     macro_rules! source {
         ($name:literal) => {
             include_str!(concat!("../tests/fixtures/themes/", $name))
         };
     }
 
-    /// Loads and validates one fixture.
     macro_rules! fixture {
         ($name:literal) => {
-            validate($name, source!($name))
+            validate_like_themeset($name, source!($name))
         };
     }
 
@@ -354,12 +351,12 @@ mod tests {
     fn declarations_that_match_the_background_validate() {
         let dark = source!("light-declared-dark.toml")
             .replace("appearance = \"light\"", "appearance = \"dark\"");
-        let theme = validate("light-declared-dark.toml", &dark).unwrap();
+        let theme = validate_like_themeset("light-declared-dark.toml", &dark).unwrap();
         assert_eq!(theme.appearance, Appearance::Dark);
 
         let light = source!("dark-declared-light.toml")
             .replace("appearance = \"dark\"", "appearance = \"light\"");
-        let theme = validate("dark-declared-light.toml", &light).unwrap();
+        let theme = validate_like_themeset("dark-declared-light.toml", &light).unwrap();
         assert_eq!(theme.appearance, Appearance::Light);
     }
 
@@ -427,7 +424,7 @@ mod tests {
             "base0A = \"#EBCB8B\"",
             "base0A = \"#EBCB8B\"\nbase0a = \"#000000\"",
         );
-        let error = validate("duplicate.toml", &source).unwrap_err();
+        let error = validate_like_themeset("duplicate.toml", &source).unwrap_err();
         let message = error.to_string();
         assert!(
             message.contains("unknown key `base0a` in [palette]"),
@@ -439,7 +436,7 @@ mod tests {
     #[test]
     fn unknown_target_section_lists_the_targets() {
         let source = source!("overrides.toml").replace("[targets.herdr]", "[targets.vscode]");
-        let error = validate("unknown-target.toml", &source).unwrap_err();
+        let error = validate_like_themeset("unknown-target.toml", &source).unwrap_err();
         let message = error.to_string();
         assert!(
             message.contains("unknown key `vscode` in [targets]"),
@@ -457,7 +454,7 @@ mod tests {
             "cursorColor = \"#D8DEE9\"",
             "cursorColor = \"#D8DEE9\"\nred = \"#ff0000\"",
         );
-        let error = validate("wt-key.toml", &source).unwrap_err();
+        let error = validate_like_themeset("wt-key.toml", &source).unwrap_err();
         let message = error.to_string();
         assert!(
             message.contains("unknown key `red` in [targets.wt]"),
@@ -472,7 +469,7 @@ mod tests {
     #[test]
     fn out_of_range_token_indices_are_rejected() {
         let source = source!("overrides.toml").replace("thinkingOff = 240", "thinkingOff = 300");
-        let error = validate("index.toml", &source).unwrap_err();
+        let error = validate_like_themeset("index.toml", &source).unwrap_err();
         let message = error.to_string();
         assert!(message.contains("targets.omp.thinkingOff"), "{message}");
         assert!(message.contains("300"), "{message}");
@@ -482,7 +479,7 @@ mod tests {
     fn malformed_token_colours_are_rejected() {
         let source =
             source!("overrides.toml").replace("mdHeading = \"#81A1C1\"", "mdHeading = \"#81A1\"");
-        let error = validate("token-color.toml", &source).unwrap_err();
+        let error = validate_like_themeset("token-color.toml", &source).unwrap_err();
         let message = error.to_string();
         assert!(message.contains("targets.omp.mdHeading"), "{message}");
         assert!(message.contains("#81A1"), "{message}");

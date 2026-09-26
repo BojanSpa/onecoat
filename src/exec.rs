@@ -12,7 +12,9 @@ use crate::Error;
 use crate::model::ids::Target;
 use crate::plan::{Plan, PlannedWrite};
 
-/// What happened to one planned file.
+const TEMP_SUFFIX: &str = ".onecoat.tmp";
+const BACKUP_SUFFIX: &str = ".onecoat.bak";
+
 #[allow(missing_docs)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum WriteOutcome {
@@ -22,7 +24,6 @@ pub enum WriteOutcome {
     Unchanged,
 }
 
-/// The result of executing one planned write.
 #[allow(missing_docs)]
 #[derive(Debug)]
 pub struct WriteReport {
@@ -64,8 +65,8 @@ fn write_one(planned: &PlannedWrite) -> Result<WriteReport, Error> {
         })?;
     }
 
-    let temp = sibling(path, ".onecoat.tmp");
-    let backup = sibling(path, ".onecoat.bak");
+    let temp = append_to_file_name(path, TEMP_SUFFIX);
+    let backup = append_to_file_name(path, BACKUP_SUFFIX);
 
     if let Err(source) = write_new(&temp, &planned.bytes) {
         let _ = fs::remove_file(&temp);
@@ -101,8 +102,7 @@ fn write_new(path: &Path, bytes: &[u8]) -> io::Result<()> {
     file.sync_all()
 }
 
-/// `<path>` with `suffix` appended to the whole file name.
-fn sibling(path: &Path, suffix: &str) -> PathBuf {
+fn append_to_file_name(path: &Path, suffix: &str) -> PathBuf {
     let mut name = path.as_os_str().to_os_string();
     name.push(suffix);
     PathBuf::from(name)
@@ -118,8 +118,7 @@ mod tests {
     use crate::model::ids::Target;
     use crate::plan::{Plan, PlannedWrite};
 
-    /// A one-write plan for `path`.
-    fn plan_for(path: PathBuf, bytes: &[u8]) -> Plan {
+    fn one_write_plan(path: PathBuf, bytes: &[u8]) -> Plan {
         Plan {
             writes: vec![PlannedWrite {
                 target: Target::Wt,
@@ -137,7 +136,7 @@ mod tests {
         let backup = dir.path().join("schemes.json.onecoat.bak");
         fs::create_dir(&backup).unwrap();
 
-        let error = execute(&plan_for(target.clone(), b"next")).unwrap_err();
+        let error = execute(&one_write_plan(target.clone(), b"next")).unwrap_err();
         assert!(
             matches!(&error, Error::FileWriteFailed { path, .. } if *path == backup),
             "{error}"
@@ -152,7 +151,7 @@ mod tests {
         let target = dir.path().join("schemes.json");
         fs::write(&target, b"same").unwrap();
 
-        let reports = execute(&plan_for(target.clone(), b"same")).unwrap();
+        let reports = execute(&one_write_plan(target.clone(), b"same")).unwrap();
         assert_eq!(reports.len(), 1);
         assert_eq!(reports[0].outcome, WriteOutcome::Unchanged);
         assert!(!dir.path().join("schemes.json.onecoat.bak").exists());
@@ -170,7 +169,7 @@ mod tests {
         fs::create_dir_all(target.parent().unwrap()).unwrap();
         fs::write(&target, b"previous").unwrap();
 
-        let reports = execute(&plan_for(target.clone(), b"next")).unwrap();
+        let reports = execute(&one_write_plan(target.clone(), b"next")).unwrap();
         assert_eq!(reports[0].outcome, WriteOutcome::Written);
         assert_eq!(fs::read(&target).unwrap(), b"next");
         assert_eq!(
@@ -184,7 +183,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let target = dir.path().join("nested").join("schemes.json");
 
-        let reports = execute(&plan_for(target.clone(), b"first")).unwrap();
+        let reports = execute(&one_write_plan(target.clone(), b"first")).unwrap();
         assert_eq!(reports[0].outcome, WriteOutcome::Written);
         assert_eq!(fs::read(&target).unwrap(), b"first");
         assert!(

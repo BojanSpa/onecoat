@@ -8,13 +8,11 @@ use std::{io, path::PathBuf};
 
 use crate::model::{Appearance, Base16Entry, HexColor, ThemeId};
 
-/// The "accepted keys are ..." tail of [`Error::UnknownKey`].
-pub(crate) fn names(list: &[&str]) -> String {
+pub(crate) fn accepted_keys(list: &[&str]) -> String {
     list.join(", ")
 }
 
-/// The "is missing base0A, base0D" tail of [`Error::PaletteIncomplete`].
-fn missing_names(missing: &[Base16Entry]) -> String {
+fn missing_base16_names(missing: &[Base16Entry]) -> String {
     missing
         .iter()
         .copied()
@@ -23,7 +21,6 @@ fn missing_names(missing: &[Base16Entry]) -> String {
         .join(", ")
 }
 
-/// Every way onecoat can fail.
 #[allow(missing_docs)]
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -97,7 +94,7 @@ pub enum Error {
         value: String,
     },
 
-    #[error("[palette] in `{path}` is missing {}; add every base16 entry from base00 to base0F", missing_names(.missing))]
+    #[error("[palette] in `{path}` is missing {}; add every base16 entry from base00 to base0F", missing_base16_names(.missing))]
     PaletteIncomplete {
         path: PathBuf,
         missing: Vec<Base16Entry>,

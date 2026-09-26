@@ -5,8 +5,7 @@
 //! the installed binary. omp resolves built-ins before custom theme files, so a custom
 //! theme with one of these ids could never be selected.
 
-/// The 101 names omp ships as built-in themes.
-pub const OMP_BUILTIN_THEMES: [&str; 101] = [
+const OMP_BUILTIN_THEMES: [&str; 101] = [
     "alabaster",
     "amethyst",
     "anthracite",

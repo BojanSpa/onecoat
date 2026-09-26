@@ -9,8 +9,6 @@ use std::path::PathBuf;
 use crate::Error;
 
 /// The paths onecoat reads and writes.
-///
-/// The fields are public so tests can point them at a temporary root.
 pub struct Paths {
     /// `%LOCALAPPDATA%\Microsoft\Windows Terminal\Fragments\onecoat\schemes.json`.
     pub wt_fragment: PathBuf,

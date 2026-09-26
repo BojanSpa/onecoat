@@ -67,8 +67,7 @@ impl Sandbox {
     }
 }
 
-/// `<path>` with `suffix` appended to the whole file name.
-fn sibling(path: &Path, suffix: &str) -> PathBuf {
+fn append_to_file_name(path: &Path, suffix: &str) -> PathBuf {
     PathBuf::from(format!("{}{suffix}", path.display()))
 }
 
@@ -203,15 +202,15 @@ fn use_writes_the_fragment_and_reports_it() {
         std::fs::read(&fragment).unwrap(),
         fixture_bytes("wt/nord-dark-fragment.json")
     );
-    assert!(!sibling(&fragment, ".onecoat.bak").exists());
-    assert!(!sibling(&fragment, ".onecoat.tmp").exists());
+    assert!(!append_to_file_name(&fragment, ".onecoat.bak").exists());
+    assert!(!append_to_file_name(&fragment, ".onecoat.tmp").exists());
 }
 
 #[test]
 fn a_second_use_neither_rewrites_nor_rebacks_up() {
     let sandbox = Sandbox::new();
     let fragment = sandbox.install_fragment("wt/previous-fragment.json");
-    let backup = sibling(&fragment, ".onecoat.bak");
+    let backup = append_to_file_name(&fragment, ".onecoat.bak");
 
     let first = sandbox.run(&["use", "nord"]);
     assert_eq!(code(&first), 0, "{}", stderr(&first));
@@ -244,21 +243,21 @@ fn use_backs_up_the_previous_fragment() {
     let output = sandbox.run(&["use", "nord"]);
     assert_eq!(code(&output), 0, "{}", stderr(&output));
     assert_eq!(
-        std::fs::read(sibling(&fragment, ".onecoat.bak")).unwrap(),
+        std::fs::read(append_to_file_name(&fragment, ".onecoat.bak")).unwrap(),
         fixture_bytes("wt/previous-fragment.json")
     );
     assert_eq!(
         std::fs::read(&fragment).unwrap(),
         fixture_bytes("wt/nord-dark-fragment.json")
     );
-    assert!(!sibling(&fragment, ".onecoat.tmp").exists());
+    assert!(!append_to_file_name(&fragment, ".onecoat.tmp").exists());
 }
 
 #[test]
 fn a_failed_backup_leaves_the_fragment_intact() {
     let sandbox = Sandbox::new();
     let fragment = sandbox.install_fragment("wt/previous-fragment.json");
-    let backup = sibling(&fragment, ".onecoat.bak");
+    let backup = append_to_file_name(&fragment, ".onecoat.bak");
     std::fs::create_dir(&backup).unwrap();
 
     let output = sandbox.run(&["use", "nord"]);
@@ -270,7 +269,7 @@ fn a_failed_backup_leaves_the_fragment_intact() {
         std::fs::read(&fragment).unwrap(),
         fixture_bytes("wt/previous-fragment.json")
     );
-    assert!(!sibling(&fragment, ".onecoat.tmp").exists());
+    assert!(!append_to_file_name(&fragment, ".onecoat.tmp").exists());
 }
 
 #[test]

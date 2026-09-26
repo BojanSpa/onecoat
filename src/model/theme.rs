@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 
 use toml::Value;
 
-use crate::error::{Error, names};
+use crate::error::{Error, accepted_keys};
 use crate::model::color::HexColor;
 use crate::model::ids::{Appearance, IdProblem, Origin, ThemeId};
 use crate::model::palette::{AnsiSet, Palette};
@@ -96,7 +96,6 @@ pub enum OverrideValue {
     Text(String),
 }
 
-/// The root keys a theme file may declare.
 const ROOT_KEYS: [&str; 7] = [
     "id",
     "name",
@@ -124,7 +123,7 @@ impl Theme<Parsed> {
                 path,
                 section: "the theme file",
                 key: key.clone(),
-                accepted: names(&ROOT_KEYS),
+                accepted: accepted_keys(&ROOT_KEYS),
             });
         }
 
