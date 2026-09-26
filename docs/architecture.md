@@ -23,6 +23,7 @@ graph LR
 
 Rendering is a pure function from a validated theme to a plan of file edits; the executor is the only code that touches a filesystem or spawns a process.<br>
 `--dry-run` prints the plan that the executor would apply.<br>
+Paths come from `LOCALAPPDATA` and `APPDATA`, resolved once per invocation, so a missing environment variable is reported the same way for every command.<br>
 
 ## Target contracts
 
@@ -61,6 +62,10 @@ src/state.rs         config, state, drift re-derivation
 src/coherence.rs     role equality and perceptual spacing
 src/appearance.rs    registry read + notification
 src/targets.rs       path resolution, binary/socket discovery
+src/error.rs         the error enum and the R-42 message contract
+src/themes.rs        bundled registry, load and shadowing
+themes/nord.toml     the bundled theme source
+tests/fixtures/      vendored Windows Terminal schema and theme fixtures
 ```
 
 ## Types
@@ -128,9 +133,9 @@ base0D = "#81A1C1"        # functions, blue
 base0E = "#B48EAD"        # keywords, magenta
 base0F = "#BF616A"        # deprecated, brown
 
-[ansi]                    # optional; overrides the derived Windows Terminal ANSI set
+[ansi]                    # optional; keys are Windows Terminal's scheme keys, so the magenta role is spelled `purple`/`brightPurple`
 
-[targets.wt]              # optional per-target overrides
+[targets.wt]              # optional; keys are `background`, `foreground`, `cursorColor`, `selectionBackground`
 cursorColor = "#D8DEE9"
 
 [targets.herdr]           # optional; "terminal" makes panes inherit the host ANSI palette
@@ -142,9 +147,21 @@ mdHeading = "#81A1C1"
 
 Overrides are the only place target-specific color literals may appear; everything else derives from `palette` by the rules below, which is what keeps the three surfaces equal by construction.<br>
 
+## Validation
+
+`Theme::parse` checks the shape of a document — which keys exist and whether each holds the TOML type the schema requires — and `validate` interprets the values, so a parse error never depends on a value.<br>
+`validate` runs its checks in a fixed order, so a broken file yields one predictable message: palette keys and completeness, palette colors, appearance against `base00`'s luminance, id against the omp built-ins, `[ansi]`, `[targets.wt]`, then the remaining target sections in section-name order.<br>
+
+The theme set is the bundled themes followed by `<APPDATA>\onecoat\themes\*.toml` in file-name order:<br>
+
+- A user theme shadows a bundled theme with the same id; two user files with one id is an error.
+- A missing theme directory is an empty set, and any file that does not validate fails the whole command, so a broken theme cannot silently disappear from `list`.
+- Bundled themes are compiled into the binary, so onecoat ships no data files.
+
 ## Role derivation
 
 Base16 semantics drive every mapping; `[ansi]` and `[targets.*]` override individually.<br>
+`rolemap` is the single derivation point: a renderer reads a role and never re-derives one, and overrides apply on top of the derived set.<br>
 
 | Target | Mapping |
 | --- | --- |
@@ -171,6 +188,7 @@ All three writers share one discipline: build a plan from pure data, then execut
 - omp: both slot files are generated wholesale, so no preservation logic is needed; `config.yml` is edited only when a pinned name differs from the current value.
 
 Execution per file: re-read, re-plan against the fresh bytes, write the temporary file, back up the original, replace, re-parse the result, and restore the backup if the parse fails.<br>
+The plan is ordered, and the executor stops at the first failure: there is no rollback, so a failed write leaves no backup and the files already written stay written.<br>
 Unchanged plans skip the write entirely, which keeps mtimes and watchers quiet.<br>
 
 State is written last: `%APPDATA%\onecoat\state.json` holds the slot assignment, the pinned target names, and the expected value for every owned key.<br>
