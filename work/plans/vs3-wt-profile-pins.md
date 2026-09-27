@@ -63,3 +63,4 @@ Everything above landed as written.<br>These are the points where the plan was a
 - The pair fill carries the previous string.<br>A profile pinned to a foreign scheme therefore keeps that name on the light side.<br>The plan's "a light appearance stays on onecoat" holds only when the previous pin was already onecoat.<br>
 - `docs/architecture.md` gained a `wt pins` bullet, and its owned-values row now says the repoint needs the flag.<br>
 - VS2's exact-stdout CLI tests gained the pin line in five assertions.<br>
+- The live smoke's restore step was dropped.<br>The repoint is the wanted end state, so both files stay applied, and the pristine copies sit in `%TEMP%\vs3-live-aside\`.<br>The backup chain was checked instead: `settings.json.onecoat.bak` is byte-identical to a pre-run document re-derived from the aside copy.<br>
