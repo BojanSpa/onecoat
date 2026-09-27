@@ -13,7 +13,8 @@
 - The unit of work is one roadmap slice; take the lowest-numbered unstarted `VS`.
 - A slice is done only when every step in its plan's Verification section passes.
 - Implement against the owning `R-N`; update it and affected architecture contracts in the same PR.
-- The PR that completes a slice states its `VS` ID and the requirement IDs it closes.
+- The PR that completes a slice is titled `feat(vs<N>): <what the slice does>`, and its body names the requirement IDs it closes.
+- Only a slice PR carries a scope, as in `feat(vs2): ...`; every other PR title uses a plain prefix.
 - All changes land through a PR; `main` is protected and rejects direct pushes.
 - Never open a pull request on your own; push the branch and ask for approval, or await it.
 - Commit subjects use conventional prefixes (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`, `ci:`, `build:`).
