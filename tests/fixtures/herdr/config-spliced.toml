@@ -1,0 +1,32 @@
+# herdr configuration
+
+onboarding = false
+
+[theme]
+# Built-in themes: catppuccin, catppuccin-latte, terminal, nord, one-dark, one-light
+name = "terminal"
+auto_switch = true
+dark_name = "terminal"
+light_name = "terminal"
+
+[theme.custom]
+accent = "#81a1c1"
+panel_bg = "#151b26"
+blue = "#81a1c1"
+green = "#a3be8c"
+red = "#bf616a"
+yellow = "#ebcb8b"
+
+[theme.custom.dark]
+active_row_bg = "#1d232d"
+panel_bg = "#0b1018"
+selection_bg = "#1d232d"
+sidebar_bg = "#151b26"
+text = "#dadbdd"
+
+[ui]
+accent = "#88c0d0"
+copy_on_select = false
+
+[ui.toast]
+delivery = "terminal"

@@ -5,6 +5,7 @@ use crate::Error;
 use crate::jsonc::{Edit, Key};
 use crate::model::ids::{Slot, Target};
 use crate::model::theme::{Theme, Validated};
+use crate::render::herdr;
 use crate::render::omp;
 use crate::render::wt::{self, ProfileScheme};
 use crate::targets::Paths;
@@ -19,6 +20,7 @@ pub enum Absent {
 pub enum Content {
     Jsonc(Vec<Edit>),
     Generated(String),
+    Toml(Vec<herdr::Edit>),
     Yaml(Vec<omp::ConfigEdit>),
 }
 
@@ -72,6 +74,13 @@ impl Plan {
                     content: Content::Jsonc(wt::settings_edits(theme, slot, profile_scheme)?),
                     absent: Absent::Fail,
                     pins,
+                },
+                PlannedWrite {
+                    target: Target::Herdr,
+                    path: paths.herdr_config.clone(),
+                    content: Content::Toml(herdr::edits(theme, slot)?),
+                    absent: Absent::Fail,
+                    pins: None,
                 },
                 PlannedWrite {
                     target: Target::Omp,

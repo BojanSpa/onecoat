@@ -1,0 +1,19 @@
+# herdr configuration
+
+onboarding = false
+
+[theme]
+# Built-in themes: catppuccin, catppuccin-latte, terminal, nord, one-dark, one-light
+name = "nord"
+auto_switch = false
+
+[theme.custom]
+accent = "#88c0d0"
+panel_bg = "#151b26"
+
+[ui]
+accent = "#88c0d0"
+copy_on_select = false
+
+[ui.toast]
+delivery = "terminal"

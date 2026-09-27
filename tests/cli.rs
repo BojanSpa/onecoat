@@ -10,9 +10,13 @@ struct Sandbox {
 
 impl Sandbox {
     fn new() -> Self {
-        Self {
+        let sandbox = Self {
             root: TempDir::new().unwrap(),
-        }
+        };
+
+        sandbox.install("herdr/config.toml", &sandbox.herdr_config());
+
+        sandbox
     }
 
     fn run(&self, args: &[&str]) -> Output {
@@ -21,6 +25,7 @@ impl Sandbox {
             .env("LOCALAPPDATA", self.root.path())
             .env("APPDATA", self.root.path())
             .env("PI_CODING_AGENT_DIR", self.agent())
+            .env("PATH", self.root.path().join("no-programs"))
             .output()
             .unwrap()
     }
@@ -41,6 +46,10 @@ impl Sandbox {
 
     fn omp_config(&self) -> PathBuf {
         self.agent().join("config.yml")
+    }
+
+    fn herdr_config(&self) -> PathBuf {
+        self.root.path().join("herdr").join("config.toml")
     }
 
     fn fragment(&self) -> PathBuf {
@@ -113,6 +122,9 @@ fn fixture_bytes(relative: &str) -> Vec<u8> {
 }
 
 const PIN_NOTE: &str = "profile \"PowerShell\" pins \"One Half Dark\"";
+const HERDR_SKIPPED: &str = "herdr is not on PATH, so the config check was skipped";
+const HERDR_INTERACTIVE: &str = "no herdr server socket, so herdr picks this up at its next launch";
+const HERDR_KEYS: &str = "  theme.name\n  theme.auto_switch\n  theme.dark_name\n  theme.light_name\n  theme.custom.accent\n  theme.custom.dark.active_row_bg\n  theme.custom.blue\n  theme.custom.green\n  theme.custom.dark.panel_bg\n  theme.custom.red\n  theme.custom.dark.selection_bg\n  theme.custom.dark.sidebar_bg\n  theme.custom.dark.text\n  theme.custom.yellow\n";
 const REPOINTED_NOTE: &str = "repointed profile \"PowerShell\" from \"One Half Dark\"";
 const REPOINTED_PAIR_NOTE: &str =
     "repointed profile \"PowerShell\" from \"onecoat-dark/One Half Dark\"";
@@ -249,9 +261,10 @@ fn use_writes_every_target() {
     assert_eq!(
         stdout(&output),
         format!(
-            "wrote {}\nwrote {}\n{PIN_NOTE}\nwrote {}\nwrote {}\n",
+            "wrote {}\nwrote {}\n{PIN_NOTE}\nwrote {}\n{HERDR_SKIPPED}\n{HERDR_INTERACTIVE}\nwrote {}\nwrote {}\n",
             fragment.display(),
             settings.display(),
+            sandbox.herdr_config().display(),
             omp_theme.display(),
             omp_config.display()
         )
@@ -275,6 +288,11 @@ fn use_writes_every_target() {
     assert_eq!(
         std::fs::read(&omp_config).unwrap(),
         fixture_bytes("omp/config-spliced.yml")
+    );
+
+    assert_eq!(
+        std::fs::read(sandbox.herdr_config()).unwrap(),
+        fixture_bytes("herdr/config-spliced.toml")
     );
 
     assert_eq!(
@@ -347,10 +365,12 @@ fn a_second_use_neither_rewrites_nor_rebacks_up() {
     let settings = sandbox.install_settings("wt/settings.json");
     let omp_theme = sandbox.omp_theme("dark");
     let omp_config = sandbox.install_config("omp/config.yml");
+    let herdr_config = sandbox.herdr_config();
     let state = sandbox.state();
     let fragment_backup = append_to_file_name(&fragment, ".onecoat.bak");
     let settings_backup = append_to_file_name(&settings, ".onecoat.bak");
     let config_backup = append_to_file_name(&omp_config, ".onecoat.bak");
+    let herdr_backup = append_to_file_name(&herdr_config, ".onecoat.bak");
 
     let first = sandbox.run(&["use", "nord"]);
     assert_eq!(code(&first), 0, "{}", stderr(&first));
@@ -358,11 +378,13 @@ fn a_second_use_neither_rewrites_nor_rebacks_up() {
     let stamps = [
         stamp(&fragment),
         stamp(&settings),
+        stamp(&herdr_config),
         stamp(&omp_theme),
         stamp(&omp_config),
         stamp(&state),
         stamp(&fragment_backup),
         stamp(&settings_backup),
+        stamp(&herdr_backup),
         stamp(&config_backup),
     ];
 
@@ -372,9 +394,10 @@ fn a_second_use_neither_rewrites_nor_rebacks_up() {
     assert_eq!(
         stdout(&second),
         format!(
-            "unchanged {}\nunchanged {}\n{PIN_NOTE}\nunchanged {}\nunchanged {}\n",
+            "unchanged {}\nunchanged {}\n{PIN_NOTE}\nunchanged {}\nunchanged {}\nunchanged {}\n",
             fragment.display(),
             settings.display(),
+            herdr_config.display(),
             omp_theme.display(),
             omp_config.display()
         )
@@ -401,6 +424,11 @@ fn a_second_use_neither_rewrites_nor_rebacks_up() {
     );
 
     assert_eq!(
+        std::fs::read(&herdr_config).unwrap(),
+        fixture_bytes("herdr/config-spliced.toml")
+    );
+
+    assert_eq!(
         std::fs::read(&fragment_backup).unwrap(),
         fixture_bytes("wt/previous-fragment.json")
     );
@@ -417,18 +445,20 @@ fn a_second_use_neither_rewrites_nor_rebacks_up() {
 
     assert_eq!(
         std::fs::read_to_string(&state).unwrap(),
-        "{\n  \"slots\": {\n    \"dark\": \"nord\",\n    \"light\": null\n  },\n  \"targets\": [\n    \"wt\",\n    \"omp\"\n  ]\n}\n"
+        "{\n  \"slots\": {\n    \"dark\": \"nord\",\n    \"light\": null\n  },\n  \"targets\": [\n    \"wt\",\n    \"herdr\",\n    \"omp\"\n  ]\n}\n"
     );
 
     assert_eq!(
         [
             stamp(&fragment),
             stamp(&settings),
+            stamp(&herdr_config),
             stamp(&omp_theme),
             stamp(&omp_config),
             stamp(&state),
             stamp(&fragment_backup),
             stamp(&settings_backup),
+            stamp(&herdr_backup),
             stamp(&config_backup),
         ],
         stamps
@@ -578,9 +608,10 @@ fn dry_run_names_the_planned_files_and_the_changed_keys() {
     assert_eq!(
         stdout(&output),
         format!(
-            "would assign dark = nord\nwould write {}\n  schemes\nwould write {}\n  theme\n  themes\n  profiles.defaults.colorScheme\n{PIN_NOTE}\nwould write {}\nwould write {}\n  theme.dark\n",
+            "would assign dark = nord\nwould write {}\n  schemes\nwould write {}\n  theme\n  themes\n  profiles.defaults.colorScheme\n{PIN_NOTE}\nwould write {}\n{HERDR_KEYS}would write {}\nwould write {}\n  theme.dark\n",
             fragment.display(),
             settings.display(),
+            sandbox.herdr_config().display(),
             omp_theme.display(),
             omp_config.display()
         )
@@ -614,6 +645,7 @@ fn dry_run_after_an_apply_reports_nothing_to_do() {
     let settings = sandbox.install_settings("wt/settings-spliced.json");
     let omp_theme = sandbox.install_omp_theme("omp/onecoat-dark.json", "dark");
     let omp_config = sandbox.install_config("omp/config-spliced.yml");
+    sandbox.install("herdr/config-spliced.toml", &sandbox.herdr_config());
 
     let output = sandbox.run(&["use", "nord", "--dry-run"]);
     assert_eq!(code(&output), 0, "{}", stderr(&output));
@@ -621,9 +653,10 @@ fn dry_run_after_an_apply_reports_nothing_to_do() {
     assert_eq!(
         stdout(&output),
         format!(
-            "would assign dark = nord\nunchanged {}\nunchanged {}\n{PIN_NOTE}\nunchanged {}\nunchanged {}\n",
+            "would assign dark = nord\nunchanged {}\nunchanged {}\n{PIN_NOTE}\nunchanged {}\nunchanged {}\nunchanged {}\n",
             fragment.display(),
             settings.display(),
+            sandbox.herdr_config().display(),
             omp_theme.display(),
             omp_config.display()
         )
@@ -705,7 +738,8 @@ fn targets_limit_the_apply() {
     assert_eq!(
         stdout(&herdr),
         format!(
-            "unchanged {}\nunchanged {}\nno writer for herdr\n",
+            "wrote {}\n{HERDR_SKIPPED}\n{HERDR_INTERACTIVE}\nunchanged {}\nunchanged {}\n",
+            sandbox.herdr_config().display(),
             omp_theme.display(),
             omp_config.display()
         )
@@ -764,6 +798,7 @@ fn writes_stay_inside_the_target_files_and_onecoats_own_directory() {
     let fragment = sandbox.fragment();
     let settings = sandbox.settings();
     let agent = sandbox.agent();
+    let herdr_config = sandbox.herdr_config();
     let state = sandbox.state();
 
     let output = sandbox.run(&["use", "nord"]);
@@ -773,6 +808,8 @@ fn writes_stay_inside_the_target_files_and_onecoats_own_directory() {
         path.starts_with(fragment.parent().unwrap())
             || path == settings
             || path == append_to_file_name(&settings, ".onecoat.bak")
+            || path == herdr_config
+            || path == append_to_file_name(&herdr_config, ".onecoat.bak")
             || path.starts_with(&agent)
             || path == state
     };
@@ -808,9 +845,10 @@ fn profile_color_scheme_all_repoints_every_pin() {
     assert_eq!(
         stdout(&output),
         format!(
-            "wrote {}\nwrote {}\n{REPOINTED_NOTE}\nwrote {}\nwrote {}\n",
+            "wrote {}\nwrote {}\n{REPOINTED_NOTE}\nwrote {}\n{HERDR_SKIPPED}\n{HERDR_INTERACTIVE}\nwrote {}\nwrote {}\n",
             fragment.display(),
             settings.display(),
+            sandbox.herdr_config().display(),
             omp_theme.display(),
             omp_config.display()
         )
@@ -827,9 +865,10 @@ fn profile_color_scheme_all_repoints_every_pin() {
     assert_eq!(
         stdout(&again),
         format!(
-            "unchanged {}\nunchanged {}\n{REPOINTED_PAIR_NOTE}\nunchanged {}\nunchanged {}\n",
+            "unchanged {}\nunchanged {}\n{REPOINTED_PAIR_NOTE}\nunchanged {}\nunchanged {}\nunchanged {}\n",
             fragment.display(),
             settings.display(),
+            sandbox.herdr_config().display(),
             omp_theme.display(),
             omp_config.display()
         )
@@ -877,7 +916,7 @@ fn use_slot_records_the_assignment_and_keeps_the_other_slot() {
 
     assert_eq!(
         std::fs::read_to_string(&state).unwrap(),
-        "{\n  \"slots\": {\n    \"dark\": null,\n    \"light\": \"nord\"\n  },\n  \"targets\": [\n    \"wt\",\n    \"omp\"\n  ]\n}\n"
+        "{\n  \"slots\": {\n    \"dark\": null,\n    \"light\": \"nord\"\n  },\n  \"targets\": [\n    \"wt\",\n    \"herdr\",\n    \"omp\"\n  ]\n}\n"
     );
 
     let dark = sandbox.run(&["use", "nord"]);
@@ -885,7 +924,7 @@ fn use_slot_records_the_assignment_and_keeps_the_other_slot() {
 
     assert_eq!(
         std::fs::read_to_string(&state).unwrap(),
-        "{\n  \"slots\": {\n    \"dark\": \"nord\",\n    \"light\": \"nord\"\n  },\n  \"targets\": [\n    \"wt\",\n    \"omp\"\n  ]\n}\n"
+        "{\n  \"slots\": {\n    \"dark\": \"nord\",\n    \"light\": \"nord\"\n  },\n  \"targets\": [\n    \"wt\",\n    \"herdr\",\n    \"omp\"\n  ]\n}\n"
     );
 
     let human = sandbox.run(&["current"]);
@@ -893,7 +932,7 @@ fn use_slot_records_the_assignment_and_keeps_the_other_slot() {
 
     assert_eq!(
         stdout(&human),
-        "slot  theme targets\ndark  nord  wt,omp\nlight nord  wt,omp\n"
+        "slot  theme targets\ndark  nord  wt,herdr,omp\nlight nord  wt,herdr,omp\n"
     );
 
     let machine = sandbox.run(&["current", "--json"]);
@@ -903,28 +942,7 @@ fn use_slot_records_the_assignment_and_keeps_the_other_slot() {
         parsed,
         serde_json::json!({
             "slots": {"dark": "nord", "light": "nord"},
-            "targets": ["wt", "omp"],
-        })
-    );
-}
-
-#[test]
-fn an_apply_without_a_writer_still_records_the_assignment() {
-    let sandbox = Sandbox::new();
-    sandbox.install_settings("wt/settings.json");
-
-    let output = sandbox.run(&["use", "nord", "--slot", "light", "--targets", "herdr"]);
-    assert_eq!(code(&output), 0, "{}", stderr(&output));
-    assert_eq!(stdout(&output), "no writer for herdr\n");
-
-    let machine = sandbox.run(&["current", "--json"]);
-    let parsed: serde_json::Value = serde_json::from_str(&stdout(&machine)).unwrap();
-
-    assert_eq!(
-        parsed,
-        serde_json::json!({
-            "slots": {"dark": null, "light": "nord"},
-            "targets": [],
+            "targets": ["wt", "herdr", "omp"],
         })
     );
 }

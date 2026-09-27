@@ -251,7 +251,7 @@ The regression bar for import is a re-render test: import a fixture, apply it, a
 - Each check has a passing and a failing fixture tree under `tools/tidy/fixtures/`, so a check that stops firing fails its own test.
 - Golden tests snapshot whole files and assert the key list the splice reports, so an unintended rewrite fails loudly.
 - Every writer test is paired with an idempotency test: apply twice, assert byte equality and that the second run performed no writes.
-- Herdr output is validated by spawning `herdr config check` with `APPDATA` pointed at a fixture directory.
+- Herdr output is pinned by a byte-exact golden and the idempotency pair; the `herdr config check` gate and the reload are proven in the live smoke, because a stubbed binary cannot stand in for it.
 - Windows Terminal output is validated against a vendored `profiles.schema.json` — Windows Terminal 1.24.11911.0's own file, unmodified.
 - omp output is checked for token completeness and, in the smoke test, by launching `omp` under an isolated profile and asserting no theme error.
 - The end-to-end smoke test runs the release binary against the real machine: apply, verify, then restore from backups and assert the restore is byte-identical.

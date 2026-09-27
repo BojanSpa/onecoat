@@ -129,7 +129,7 @@ fn apply(paths: &Paths, args: &UseArgs) -> Result<(), Error> {
             println!("{line}");
         }
     } else {
-        for report in exec::execute(&plan)? {
+        for report in exec::execute(paths, &plan)? {
             let verb = match report.outcome {
                 WriteOutcome::Written => "wrote",
                 WriteOutcome::Unchanged => "unchanged",
@@ -145,15 +145,6 @@ fn apply(paths: &Paths, args: &UseArgs) -> Result<(), Error> {
         state.assign(slot, theme.id.clone());
         state.record(plan.targets());
         exec::write_state(&paths.state, &state)?;
-    }
-
-    if !args.targets.is_empty() {
-        let written = plan.targets();
-        for target in &targets {
-            if !written.contains(target) {
-                println!("no writer for {target}");
-            }
-        }
     }
 
     Ok(())
