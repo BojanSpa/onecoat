@@ -12,6 +12,7 @@ fn a_line_comment_is_found_at_its_position() {
 fn the_three_doc_forms_are_told_apart() {
     let found = scan("//! inner\n/// outer\n//// plain\n// plain\n").comments;
     let kinds = found.iter().map(|comment| comment.kind).collect::<Vec<_>>();
+
     assert_eq!(
         kinds,
         [Kind::InnerDoc, Kind::OuterDoc, Kind::Line, Kind::Line]
@@ -50,6 +51,7 @@ fn a_lifetime_is_not_a_char_literal() {
 #[test]
 fn hidden_lines_cover_a_multi_line_literal_but_not_its_first_line() {
     let source = "let a = 1;\nlet b = \"one\ntwo\nthree\";\nlet c = 2;\n";
+
     assert_eq!(
         scan(source).hidden,
         [false, false, true, true, false],
@@ -60,6 +62,7 @@ fn hidden_lines_cover_a_multi_line_literal_but_not_its_first_line() {
 #[test]
 fn hidden_lines_cover_raw_strings_and_block_comments() {
     let source = "let a = r#\"\n}\nfn x() {}\n\"#;\n/*\n}\nfn y() {}\n*/\n";
+
     assert_eq!(
         scan(source).hidden,
         [false, true, true, true, false, true, true, true]

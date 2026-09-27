@@ -15,33 +15,68 @@ pub struct Comment {
 pub struct Scan {
     pub comments: Vec<Comment>,
     pub hidden: Vec<bool>,
+    pub code: String,
 }
 
 pub fn scan(text: &str) -> Scan {
     let mut scanner = Scanner::new(text);
+
     let mut found = Scan {
         comments: Vec::new(),
         hidden: vec![false; text.lines().count()],
+        code: String::with_capacity(text.len()),
     };
+
     while let Some(ch) = scanner.peek(0) {
-        match ch {
-            '"' => hide(&mut found.hidden, &mut scanner, Scanner::skip_string),
+        let first = scanner.index;
+
+        let hidden = match ch {
+            '"' => {
+                hide(&mut found.hidden, &mut scanner, Scanner::skip_string);
+                true
+            }
             'r' if scanner.raw_hashes().is_some() => {
                 hide(&mut found.hidden, &mut scanner, Scanner::skip_raw_string);
+                true
             }
-            '\'' if scanner.char_literal() => scanner.skip_char(),
+            '\'' if scanner.char_literal() => {
+                scanner.skip_char();
+                true
+            }
             '/' => match scanner.peek(1) {
-                Some('/') => found.comments.push(scanner.skip_line_comment()),
+                Some('/') => {
+                    found.comments.push(scanner.skip_line_comment());
+                    true
+                }
                 Some('*') => {
                     let comment =
                         hide(&mut found.hidden, &mut scanner, Scanner::skip_block_comment);
                     found.comments.push(comment);
+                    true
                 }
-                _ => scanner.advance(),
+                _ => {
+                    scanner.advance();
+                    false
+                }
             },
-            _ => scanner.advance(),
+            _ => {
+                scanner.advance();
+                false
+            }
+        };
+
+        let consumed = &scanner.chars[first..scanner.index];
+        if hidden {
+            found.code.extend(
+                consumed
+                    .iter()
+                    .map(|ch| if *ch == '\n' { '\n' } else { ' ' }),
+            );
+        } else {
+            found.code.extend(consumed);
         }
     }
+
     found
 }
 
@@ -53,6 +88,7 @@ fn hide<T>(hidden: &mut [bool], scanner: &mut Scanner, skip: impl FnOnce(&mut Sc
             *flag = true;
         }
     }
+
     value
 }
 
@@ -86,6 +122,7 @@ impl Scanner {
             Some(_) => self.column += 1,
             None => {}
         }
+
         self.index += 1;
     }
 
@@ -97,6 +134,7 @@ impl Scanner {
 
     fn skip_string(&mut self) {
         self.advance();
+
         while let Some(ch) = self.peek(0) {
             match ch {
                 '\\' => self.push_past(2),
@@ -114,12 +152,14 @@ impl Scanner {
         while self.peek(offset) == Some('#') {
             offset += 1;
         }
+
         (self.peek(offset) == Some('"')).then_some(offset - 1)
     }
 
     fn skip_raw_string(&mut self) {
         let hashes = self.raw_hashes().unwrap_or(0);
         self.push_past(hashes + 2);
+
         while self.peek(0).is_some() {
             if self.peek(0) == Some('"')
                 && (1..=hashes).all(|offset| self.peek(offset) == Some('#'))
@@ -127,6 +167,7 @@ impl Scanner {
                 self.push_past(hashes + 1);
                 break;
             }
+
             self.advance();
         }
     }
@@ -141,11 +182,14 @@ impl Scanner {
 
     fn skip_char(&mut self) {
         self.advance();
+
         if self.peek(0) == Some('\\') {
             self.advance();
         }
+
         while let Some(ch) = self.peek(0) {
             self.advance();
+
             if ch == '\'' {
                 break;
             }
@@ -158,17 +202,21 @@ impl Scanner {
             Some('/') if self.peek(3) != Some('/') => Kind::OuterDoc,
             _ => Kind::Line,
         };
+
         let comment = Comment {
             line: self.line,
             column: self.column,
             kind,
         };
+
         while let Some(ch) = self.peek(0) {
             if ch == '\n' {
                 break;
             }
+
             self.advance();
         }
+
         comment
     }
 
@@ -178,6 +226,7 @@ impl Scanner {
             column: self.column,
             kind: Kind::Block,
         };
+
         let mut depth = 0usize;
         while let Some(ch) = self.peek(0) {
             if ch == '/' && self.peek(1) == Some('*') {
@@ -185,16 +234,21 @@ impl Scanner {
                 self.push_past(2);
                 continue;
             }
+
             if ch == '*' && self.peek(1) == Some('/') {
                 depth = depth.saturating_sub(1);
                 self.push_past(2);
+
                 if depth == 0 {
                     break;
                 }
+
                 continue;
             }
+
             self.advance();
         }
+
         comment
     }
 }

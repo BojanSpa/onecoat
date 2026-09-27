@@ -38,22 +38,27 @@ fn every_scheme_key_carries_its_base16_role() {
     let ansi = &theme.data.ansi;
 
     assert_eq!(scheme["name"], "onecoat-dark");
+
     assert_eq!(
         colour(&scheme["background"]),
         palette[Base16Entry::B00].to_string()
     );
+
     assert_eq!(
         colour(&scheme["foreground"]),
         palette[Base16Entry::B05].to_string()
     );
+
     assert_eq!(
         colour(&scheme["cursorColor"]),
         palette[Base16Entry::B0D].to_string()
     );
+
     assert_eq!(
         colour(&scheme["selectionBackground"]),
         palette[Base16Entry::B02].to_string()
     );
+
     for (key, slot) in [
         ("black", AnsiSlot::Black),
         ("red", AnsiSlot::Red),
@@ -78,14 +83,17 @@ fn every_scheme_key_carries_its_base16_role() {
             "scheme key {key}"
         );
     }
+
     assert_eq!(
         colour(&scheme["white"]),
         palette[Base16Entry::B06].to_string()
     );
+
     assert_eq!(
         colour(&scheme["brightWhite"]),
         palette[Base16Entry::B07].to_string()
     );
+
     assert_eq!(
         colour(&scheme["purple"]),
         palette[Base16Entry::B0E].to_string()
@@ -98,15 +106,19 @@ fn overrides_replace_only_the_roles_they_name() {
         "overrides",
         include_str!("../../fixtures/themes/overrides.toml"),
     );
+
     let scheme = scheme(&theme).unwrap();
 
     assert_eq!(colour(&scheme["red"]), "#ff0000");
+
     assert_eq!(
         colour(&scheme["green"]),
         theme.data.palette[Base16Entry::B0B].to_string(),
         "an ANSI slot the file did not override keeps its derived colour"
     );
+
     assert_eq!(colour(&scheme["cursorColor"]), "#d8dee9");
+
     assert_eq!(
         colour(&scheme["background"]),
         "#101820",
@@ -122,22 +134,27 @@ fn the_window_theme_takes_the_slot_and_the_surfaces_from_the_palette() {
 
     assert_eq!(window["name"], "onecoat-dark");
     assert_eq!(window["window"]["applicationTheme"], "dark");
+
     assert_eq!(
         colour(&window["window"]["frame"]),
         palette[Base16Entry::B00].to_string()
     );
+
     assert_eq!(
         colour(&window["tabRow"]["background"]),
         palette[Base16Entry::B01].to_string()
     );
+
     assert_eq!(
         colour(&window["tabRow"]["unfocusedBackground"]),
         palette[Base16Entry::B00].to_string()
     );
+
     assert_eq!(
         colour(&window["tab"]["background"]),
         palette[Base16Entry::B01].to_string()
     );
+
     assert_eq!(
         colour(&window["tab"]["unfocusedBackground"]),
         palette[Base16Entry::B00].to_string()
@@ -150,6 +167,7 @@ fn the_window_theme_follows_the_background_override() {
         "overrides",
         include_str!("../../fixtures/themes/overrides.toml"),
     );
+
     let window = window_theme(&theme).unwrap();
 
     assert_eq!(colour(&window["window"]["frame"]), "#101820");
@@ -171,8 +189,10 @@ fn the_settings_edits_name_the_pair_the_window_theme_and_the_scheme() {
             fill: crate::jsonc::Fill::BuiltIn,
         }
     );
+
     assert_eq!(element(&edits[1])["name"], "onecoat-dark");
     assert_eq!(element(&edits[1])["window"]["applicationTheme"], "dark");
+
     assert_eq!(
         edits[2],
         Edit::Pair {
@@ -209,6 +229,7 @@ fn the_repoint_edit_joins_the_settings_edits_only_under_all() {
 
     let all = settings_edits(&theme, ProfileScheme::All).unwrap();
     assert_eq!(all.len(), 4);
+
     assert_eq!(
         all[3],
         Edit::Repoint {

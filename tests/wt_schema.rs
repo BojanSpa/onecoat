@@ -14,6 +14,7 @@ fn fragment() -> Value {
 
 fn settings() -> Value {
     let source = String::from_utf8(fixture("settings-spliced.json")).unwrap();
+
     CstRootNode::parse(&source, &ParseOptions::default())
         .unwrap()
         .to_serde_value()
@@ -26,6 +27,7 @@ fn fixture(name: &str) -> Vec<u8> {
         .join("fixtures")
         .join("wt")
         .join(name);
+
     std::fs::read(path).unwrap()
 }
 
@@ -73,10 +75,12 @@ fn the_settings_document_is_only_valid_with_all_three_root_keys() {
 fn the_spliced_settings_document_satisfies_the_windows_terminal_schema() {
     let document = settings();
     let validator = validator();
+
     let errors: Vec<String> = validator
         .iter_errors(&document)
         .map(|error| format!("{error} at {}", error.instance_path()))
         .collect();
+
     assert!(errors.is_empty(), "{errors:#?}");
 }
 

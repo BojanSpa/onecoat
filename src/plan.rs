@@ -42,10 +42,12 @@ impl Plan {
     ) -> Result<Self, Error> {
         let key = Key::parse(wt::PROFILES_KEY);
         let field = wt::COLOR_SCHEME_FIELD.to_owned();
+
         let pins = Some(match profile_scheme {
             ProfileScheme::Report => PinReport::Report { key, field },
             ProfileScheme::All => PinReport::Repoint { key, field },
         });
+
         Ok(Self {
             writes: vec![
                 PlannedWrite {

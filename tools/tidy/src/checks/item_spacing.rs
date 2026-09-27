@@ -33,16 +33,20 @@ impl Check for ItemSpacing {
                 let Some(next) = lines.get(index + 1) else {
                     continue;
                 };
+
                 if line.trim() != "}" || hidden.get(index + 1).copied().unwrap_or(true) {
                     continue;
                 }
+
                 if next.trim().is_empty() {
                     continue;
                 }
+
                 let indent = indentation(line);
                 if !opens_an_item(&lines, index + 1, indent) {
                     continue;
                 }
+
                 found.push(Diagnostic {
                     path: source.path.clone(),
                     line: index + 2,
@@ -52,6 +56,7 @@ impl Check for ItemSpacing {
                 });
             }
         }
+
         Ok(found)
     }
 }
@@ -60,13 +65,16 @@ fn opens_an_item(lines: &[&str], index: usize, indent: usize) -> bool {
     let Some(line) = lines.get(index) else {
         return false;
     };
+
     if indentation(line) != indent {
         return false;
     }
+
     let trimmed = line.trim_start();
     if trimmed.starts_with("#[") {
         return opens_an_item(lines, index + 1, indent);
     }
+
     starts_item(trimmed)
 }
 
@@ -76,13 +84,16 @@ fn starts_item(line: &str) -> bool {
         if ITEMS.contains(&word) {
             return true;
         }
+
         if !is_modifier(word) {
             return false;
         }
+
         if word == "extern" && words.peek().is_some_and(|next| next.starts_with('"')) {
             words.next();
         }
     }
+
     false
 }
 

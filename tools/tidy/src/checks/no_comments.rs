@@ -22,6 +22,7 @@ impl Check for NoComments {
                 {
                     continue;
                 }
+
                 found.push(Diagnostic {
                     path: source.path.clone(),
                     line: comment.line,
@@ -31,6 +32,7 @@ impl Check for NoComments {
                 });
             }
         }
+
         Ok(found)
     }
 }
@@ -39,6 +41,7 @@ fn crate_doc_lines(source: &Source) -> usize {
     if source.path != CRATE_DOC {
         return 0;
     }
+
     source
         .text
         .lines()

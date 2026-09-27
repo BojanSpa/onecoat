@@ -81,7 +81,9 @@ impl Repo {
         for entry in entries {
             collect(&self.root.join(entry), extension, &mut paths)?;
         }
+
         paths.sort();
+
         paths
             .into_iter()
             .map(|path| {
@@ -99,6 +101,7 @@ impl Repo {
             path: path.to_path_buf(),
             source,
         })?;
+
         String::from_utf8(bytes).map_err(|_| Error::NotUtf8 {
             path: path.to_path_buf(),
         })
@@ -118,11 +121,14 @@ pub fn run(root: &Path) -> Result<Vec<Diagnostic>, Error> {
             path: root.to_path_buf(),
         });
     }
+
     let repo = Repo::new(root);
+
     let results = checks::CHECKS
         .iter()
         .map(|check| check.run(&repo))
         .collect::<Result<Vec<_>, Error>>()?;
+
     Ok(results.into_iter().flatten().collect())
 }
 
@@ -130,18 +136,22 @@ fn collect(path: &Path, extension: &str, found: &mut Vec<PathBuf>) -> Result<(),
     if !path.exists() {
         return Ok(());
     }
+
     if path.is_dir() {
         let entries = std::fs::read_dir(path).map_err(|source| Error::List {
             path: path.to_path_buf(),
             source,
         })?;
+
         for entry in entries {
             let entry = entry.map_err(|source| Error::List {
                 path: path.to_path_buf(),
                 source,
             })?;
+
             collect(&entry.path(), extension, found)?;
         }
+
         Ok(())
     } else if path.extension().is_some_and(|found| found == extension) {
         found.push(path.to_path_buf());

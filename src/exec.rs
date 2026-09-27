@@ -46,12 +46,16 @@ pub fn preview(plan: &Plan) -> Result<Vec<String>, Error> {
             WriteOutcome::Written => "would write",
             WriteOutcome::Unchanged => "unchanged",
         };
+
         lines.push(format!("{verb} {}", write.path.display()));
+
         for key in &write.changed {
             lines.push(format!("  {key}"));
         }
+
         lines.extend(write.pin_notes);
     }
+
     Ok(lines)
 }
 
@@ -65,10 +69,13 @@ pub fn execute(plan: &Plan) -> Result<Vec<WriteReport>, Error> {
                 outcome: WriteOutcome::Unchanged,
                 pin_notes: write.pin_notes,
             });
+
             continue;
         }
+
         replace(&write)?;
         verify_written(&write.path, write.backup.as_deref())?;
+
         reports.push(WriteReport {
             target: write.target,
             path: write.path,
@@ -76,6 +83,7 @@ pub fn execute(plan: &Plan) -> Result<Vec<WriteReport>, Error> {
             pin_notes: write.pin_notes,
         });
     }
+
     Ok(reports)
 }
 
@@ -84,19 +92,24 @@ pub fn verify_written(path: &Path, backup: Option<&Path>) -> Result<(), Error> {
         path: path.to_path_buf(),
         source,
     })?;
+
     let Err(problem) = jsonc::verify(path, &source) else {
         return Ok(());
     };
+
     let Some(backup) = backup else {
         return Err(problem);
     };
+
     if !backup.exists() {
         return Err(Error::BackupMissing {
             path: path.to_path_buf(),
             backup: backup.to_path_buf(),
         });
     }
+
     restore(backup, path)?;
+
     Err(Error::ApplyNotVerified {
         path: path.to_path_buf(),
         backup: backup.to_path_buf(),
@@ -107,13 +120,16 @@ pub fn verify_written(path: &Path, backup: Option<&Path>) -> Result<(), Error> {
 fn resolve_one(planned: &PlannedWrite) -> Result<ResolvedWrite, Error> {
     let path = planned.path.as_path();
     let existing = read(path)?;
+
     let backup = existing
         .is_some()
         .then(|| append_to_file_name(path, BACKUP_SUFFIX));
+
     let source = existing
         .as_deref()
         .map(|current| std::str::from_utf8(current).map_err(|_| not_utf8(path)))
         .transpose()?;
+
     let (bytes, changed) = match source {
         Some(source) => {
             let spliced = jsonc::splice(path, source, &planned.edits)?;
@@ -131,14 +147,17 @@ fn resolve_one(planned: &PlannedWrite) -> Result<ResolvedWrite, Error> {
             }
         },
     };
+
     let pin_notes = match (source, &planned.pins) {
         (Some(source), Some(report)) => report_pins(path, source, report)?,
         _ => Vec::new(),
     };
+
     let outcome = match &existing {
         Some(current) if *current == bytes => WriteOutcome::Unchanged,
         _ => WriteOutcome::Written,
     };
+
     Ok(ResolvedWrite {
         target: planned.target,
         path: planned.path.clone(),
@@ -154,7 +173,9 @@ fn report_pins(path: &Path, source: &str, report: &PinReport) -> Result<Vec<Stri
     let (key, field) = match report {
         PinReport::Report { key, field } | PinReport::Repoint { key, field } => (key, field),
     };
+
     let notes = jsonc::pinned(path, source, key, field)?;
+
     Ok(notes
         .into_iter()
         .map(|pin| match report {
@@ -180,22 +201,27 @@ fn replace(write: &ResolvedWrite) -> Result<(), Error> {
         let _ = fs::remove_file(&temp);
         return Err(Error::FileWriteFailed { path: temp, source });
     }
+
     if let Some(backup) = &write.backup
         && let Err(source) = fs::copy(path, backup)
     {
         let _ = fs::remove_file(&temp);
+
         return Err(Error::FileWriteFailed {
             path: backup.clone(),
             source,
         });
     }
+
     if let Err(source) = fs::rename(&temp, path) {
         let _ = fs::remove_file(&temp);
+
         return Err(Error::FileWriteFailed {
             path: write.path.clone(),
             source,
         });
     }
+
     Ok(())
 }
 
@@ -204,11 +230,13 @@ fn restore(backup: &Path, path: &Path) -> Result<(), Error> {
         path: backup.to_path_buf(),
         source,
     })?;
+
     let temp = append_to_file_name(path, TEMP_SUFFIX);
     if let Err(source) = create_synced(&temp, &bytes) {
         let _ = fs::remove_file(&temp);
         return Err(Error::FileWriteFailed { path: temp, source });
     }
+
     fs::rename(&temp, path).map_err(|source| Error::FileWriteFailed {
         path: path.to_path_buf(),
         source,

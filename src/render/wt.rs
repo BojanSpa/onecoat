@@ -82,6 +82,7 @@ pub fn scheme(theme: &Theme<Validated>) -> Result<Value, Error> {
     let data = &theme.data;
     let palette = &data.palette;
     let ansi = &data.ansi;
+
     to_value(&WtScheme {
         name: name(theme),
         background: background(theme),
@@ -112,6 +113,7 @@ pub fn scheme(theme: &Theme<Validated>) -> Result<Value, Error> {
 
 pub fn window_theme(theme: &Theme<Validated>) -> Result<Value, Error> {
     let palette = &theme.data.palette;
+
     to_value(&WtWindowTheme {
         name: name(theme),
         window: WtWindow {
@@ -142,6 +144,7 @@ pub fn settings_edits(
     profile_scheme: ProfileScheme,
 ) -> Result<Vec<Edit>, Error> {
     let side = Slot::from(theme.appearance);
+
     let mut edits = vec![
         Edit::Pair {
             key: Key::parse(THEME_KEY),
@@ -161,6 +164,7 @@ pub fn settings_edits(
             fill: Fill::FromString,
         },
     ];
+
     if profile_scheme == ProfileScheme::All {
         edits.push(Edit::Repoint {
             key: Key::parse(PROFILES_KEY),
@@ -170,6 +174,7 @@ pub fn settings_edits(
             fill: Fill::FromString,
         });
     }
+
     Ok(edits)
 }
 

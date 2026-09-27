@@ -24,6 +24,7 @@ impl ThemeSet {
                 Origin::Bundled,
             )?
             .validate()?;
+
             themes.insert(theme.id.clone(), theme);
         }
 
@@ -33,6 +34,7 @@ impl ThemeSet {
                 path: path.clone(),
                 source,
             })?;
+
             let theme = Theme::parse(path.clone(), &source, Origin::User)?.validate()?;
             if let Some(other) = declared.insert(theme.id.clone(), path.clone()) {
                 return Err(Error::DuplicateThemeId {
@@ -41,8 +43,10 @@ impl ThemeSet {
                     id: theme.id.clone(),
                 });
             }
+
             themes.insert(theme.id.clone(), theme);
         }
+
         Ok(Self { themes })
     }
 
@@ -66,20 +70,25 @@ fn toml_files_by_name(dir: &Path) -> Result<Vec<PathBuf>, Error> {
             });
         }
     };
+
     let mut files = Vec::new();
     for entry in entries {
         let entry = entry.map_err(|source| Error::FileUnreadable {
             path: dir.to_path_buf(),
             source,
         })?;
+
         let path = entry.path();
+
         let is_toml = path
             .extension()
             .is_some_and(|extension| extension == "toml");
+
         if is_toml && entry.file_type().is_ok_and(|kind| kind.is_file()) {
             files.push(path);
         }
     }
+
     files.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
     Ok(files)
 }

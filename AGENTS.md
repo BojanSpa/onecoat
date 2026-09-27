@@ -32,6 +32,7 @@
 
 - Don't write comments, write self-evident code instead; contracts that code cannot carry live in `docs/architecture.md`.
 - Separate items with one blank line; a closing brace is never the line before an item.
+- Separate statements with one blank line when either one spans lines; a single-line `let` stays glued to the block below it.
 - Newtype domain values; parse at the boundary so validation happens exactly once.
 - Encode state as enums, not booleans: illegal states should be unrepresentable.
 - Model phases with typestate: `Parsed`, `Validated`, `Written` are distinct types, not flags.

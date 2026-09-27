@@ -93,6 +93,7 @@ fn list(paths: &Paths, args: ReadArgs) -> Result<(), Error> {
 
 fn apply(paths: &Paths, args: &UseArgs) -> Result<(), Error> {
     let themes = ThemeSet::load(&paths.user_themes)?;
+
     let theme = themes
         .get(args.id.as_str())
         .ok_or_else(|| Error::ThemeNotFound {
@@ -106,7 +107,6 @@ fn apply(paths: &Paths, args: &UseArgs) -> Result<(), Error> {
     };
 
     let plan = Plan::wt(paths, theme, args.profile_color_scheme)?.limited_to(&targets);
-
     if args.dry_run {
         for line in exec::preview(&plan)? {
             println!("{line}");
@@ -119,6 +119,7 @@ fn apply(paths: &Paths, args: &UseArgs) -> Result<(), Error> {
             };
 
             println!("{verb} {}", report.path.display());
+
             for note in &report.pin_notes {
                 println!("{note}");
             }
@@ -160,8 +161,10 @@ impl ListRow {
 
 fn print_json(themes: &ThemeSet) -> Result<(), Error> {
     let rows: Vec<ListRow> = themes.iter().map(ListRow::of).collect();
+
     let document =
         serde_json::to_string_pretty(&rows).map_err(|source| Error::JsonEncodeFailed { source })?;
+
     println!("{document}");
     Ok(())
 }
@@ -197,6 +200,7 @@ fn print_table(themes: &ThemeSet) {
     let rows: Vec<TableRow> = std::iter::once(TableRow::header())
         .chain(themes.iter().map(TableRow::of))
         .collect();
+
     let widest = |cell: fn(&TableRow) -> &str| {
         rows.iter()
             .map(cell)
@@ -204,11 +208,13 @@ fn print_table(themes: &ThemeSet) {
             .max()
             .unwrap_or(0)
     };
+
     let (id_width, appearance_width, origin_width) = (
         widest(|row| &row.id),
         widest(|row| row.appearance),
         widest(|row| row.origin),
     );
+
     for row in &rows {
         let line = format!(
             "{:<id$} {:<appearance$} {:<origin$} {}",
@@ -220,6 +226,7 @@ fn print_table(themes: &ThemeSet) {
             appearance = appearance_width,
             origin = origin_width
         );
+
         println!("{}", line.trim_end());
     }
 }
