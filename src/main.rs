@@ -90,11 +90,13 @@ fn apply(paths: &Paths, args: &UseArgs) -> Result<(), Error> {
         .ok_or_else(|| Error::ThemeNotFound {
             id: args.id.clone(),
         })?;
+
     let targets = if args.targets.is_empty() {
         Target::ALL.to_vec()
     } else {
         args.targets.clone()
     };
+
     let plan = Plan::wt(paths, theme)?.limited_to(&targets);
 
     if args.dry_run {
@@ -107,6 +109,7 @@ fn apply(paths: &Paths, args: &UseArgs) -> Result<(), Error> {
                 WriteOutcome::Written => "wrote",
                 WriteOutcome::Unchanged => "unchanged",
             };
+
             println!("{verb} {}", report.path.display());
         }
     }
@@ -119,6 +122,7 @@ fn apply(paths: &Paths, args: &UseArgs) -> Result<(), Error> {
             }
         }
     }
+
     Ok(())
 }
 
