@@ -12,7 +12,7 @@ graph LR
   V --> RO["omp renderer"]
   RW --> PW["Plan: fragment upsert<br/>+ 3 JSONC splices"]
   RH --> PH["Plan: toml_edit edits"]
-  RO --> PO["Plan: 2 theme files"]
+  RO --> PO["Plan: theme file<br/>+ config pin"]
   PW --> X["Executor<br/>re-read, backup, atomic replace, re-parse"]
   PH --> X
   PO --> X
@@ -23,19 +23,19 @@ graph LR
 
 Rendering is a pure function from a validated theme to a plan of file edits; the executor is the only code that touches a filesystem or spawns a process.<br>
 `--dry-run` prints the plan that the executor would apply.<br>
-Paths come from `LOCALAPPDATA` and `APPDATA`, resolved once per invocation, so a missing environment variable is reported the same way for every command.<br>
+Paths come from `LOCALAPPDATA`, `APPDATA`, and the omp agent directory, resolved once per invocation, so a missing environment variable is reported the same way for every command.<br>
 
 ## Target contracts
 
-Verified on the development machine: Windows Terminal 1.24.11911, Herdr 0.9.1-preview, omp 18.3.2.<br>
+Verified on the development machine: Windows Terminal 1.24.11911, Herdr 0.9.1-preview, omp 18.3.5.<br>
 
 | Target | File | Owned values | Reload | Validator |
 | --- | --- | --- | --- | --- |
 | wt | `%LOCALAPPDATA%\Microsoft\Windows Terminal\Fragments\onecoat\schemes.json` | `schemes[]`, upserted by `name`, one element per slot | Windows Terminal reloads when its settings file changes, re-reading fragments | vendored `profiles.schema.json` |
 | wt | `%LOCALAPPDATA%\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json` | root `theme` (light/dark pair), root `themes[]`, `profiles.defaults.colorScheme` (pair), per-profile `colorScheme` pins that already exist (repointed only under `--profile-color-scheme all`) | same | same |
 | herdr | `%APPDATA%\herdr\config.toml` | `[theme]` `name`, `auto_switch`, `dark_name`, `light_name`; `[theme.custom]` and its `.dark`/`.light` layers | `herdr server reload-config` | `herdr config check` |
-| omp | `<agent dir>/themes/onecoat-dark.json`, `onecoat-light.json` | every required token | file watcher on the active theme file | vendored token list |
-| omp | `<agent dir>/config.yml` | `theme.dark`, `theme.light` | next launch (values are set once) | `omp config get theme.dark` |
+| omp | `<agent dir>/themes/onecoat-<slot>.json`, written for the applied slot | every required token | file watcher on the active theme file | vendored token list |
+| omp | `<agent dir>/config.yml` | the applied slot's key under `theme` | next launch (the keys are set once) | `omp config get theme.dark` |
 
 Constraints that shape the writers:<br>
 
@@ -43,7 +43,7 @@ Constraints that shape the writers:<br>
 - `theme` names may not be `light`, `dark`, or `system`.
 - Herdr resolves themes from the client's local config, so the file above is correct for local use and wrong for a remote client; remote is out of scope.
 - omp built-in themes take precedence over same-named custom files, hence the `onecoat-` prefix.
-- omp's agent directory moves with `PI_CODING_AGENT_DIR`.
+- omp's agent directory is `PI_CODING_AGENT_DIR` when that variable is set, and `%USERPROFILE%\.omp\agent` otherwise.
 
 ## Layout
 
@@ -54,7 +54,7 @@ src/validate.rs      Parsed -> Validated: completeness, luminance, spacing
 src/rolemap.rs       base16 role derivation shared by all renderers
 src/render/wt.rs     scheme + window theme + JSONC edit plan
 src/render/herdr.rs  toml_edit edit plan
-src/render/omp.rs    66-token theme file plan
+src/render/omp.rs    69-token theme file + config.yml splice
 src/plan.rs          Plan, PlannedWrite, dry-run rendering
 src/exec.rs          re-read, backup, atomic replace, re-parse, restore
 src/jsonc.rs         CST splice over dotted keys, appearance pairs, and named array elements
@@ -172,15 +172,17 @@ Base16 semantics drive every mapping; `[ansi]` and `[targets.*]` override indivi
 | wt scheme | `background`=00, `foreground`=05, `cursorColor`=0D, `selectionBackground`=02; `black`=00, `red`=08, `green`=0B, `yellow`=0A, `blue`=0D, `magenta`=0E, `cyan`=0C, `white`=06; brights from 03 and 07 |
 | wt window | `window.applicationTheme`=slot, `frame`/`tabRow.unfocusedBackground`=00, `tabRow.background`/`tab.background`=01, `tab.unfocusedBackground`=00 |
 | herdr | `panel_bg`=00, `sidebar_bg`=01, `active_row_bg`=02, `selection_bg`=02, `text`=05, `accent`=0D, `red`=08, `green`=0B, `blue`=0D, `yellow`=0A; `name = "terminal"` inherits ANSI for everything else |
-| omp text | `text`=05, `muted`=04, `dim`=03, `accent`=0D, `border`=02, `borderMuted`=01, `borderAccent`=0D, `success`=0B, `error`=08, `warning`=0A |
-| omp blocks | `toolPendingBg`=00, `userMessageBg`=01, `toolSuccessBg`=01, `toolErrorBg`=01, `customMessageBg`=02, `selectedBg`=02, `statusLineBg`=02 |
+| omp text | `text`=05, `muted`=04, `dim`=03, `accent`=0D, `link`=0D, `border`=02, `borderMuted`=01, `borderAccent`=0D, `success`=0B, `error`=08, `warning`=0A |
+| omp blocks | `toolPendingBg`=00, `userMessageBg`=01, `toolSuccessBg`=01, `toolErrorBg`=01, `customMessageBg`=02, `selectedBg`=02, `statusLineBg`=02, `customMessageLabel`=0D, `customMessageText`=05, `userMessageText`=06 |
+| omp prompt | `bashMode`=0C, `pythonMode`=0D |
+| omp tools | `toolText`=05, `toolTitle`=06 |
 | omp syntax | comment=03, keyword=0E, function=0D, variable=08, string=0B, number=09, type=0A, operator=0C, punctuation=05 |
-| omp markdown | heading=0D, link=0D, linkUrl=0C, code=0B, codeBlock=05, quote=0C, hr=03, bullet=0D |
+| omp markdown | heading=0D, link=0D, linkUrl=0C, code=0B, codeBlock=05, quote=0C, quoteBorder=03, hr=03, bullet=0D, codeBlockBorder=01 |
 | omp diff | added=0B, removed=08, context=03 |
-| omp thinking | off=03, minimal=04, low=0D, medium=0C, high=0C, xhigh=0A, max=08 |
+| omp thinking | off=03, minimal=04, low=0D, medium=0C, high=0C, xhigh=0A, max=08, text=04 |
 | omp status line | sep=01, model=0D, path=0C, gitClean=0B, gitDirty=0A, context=0C, spend=05, staged=0B, dirty=0A, untracked=08, output=04, cost=0E, subagents=0E |
 
-The table is the contract; the exhaustive token list for omp lives beside it in `src/render/omp.rs` and is checked for completeness by a test, so a new harness token fails the build rather than rendering as a default.<br>
+The table is the contract; the token list and this mapping live in `src/render/omp.rs`, beside the file it renders, and a test checks the list against the vendored `tests/fixtures/omp/theme-tokens.json`, so a new harness token fails the build rather than rendering as a default.<br>
 
 ## Writers
 
@@ -192,7 +194,7 @@ All three writers share one discipline: build a plan from pure data, then execut
 - wt pins: a per-profile `colorScheme` that exists is reported by name on every apply, and `--profile-color-scheme all` repoints it to the pair; a profile that does not pin is never given the key, because inheritance from `profiles.defaults.colorScheme` is the point.<br>
 - wt pairs: a pair edit writes the assigned side only. The other side keeps whatever it named, and where the key held a bare string that side carries the string over, because a missing side would fall back to a built-in theme or `Campbell` and the appearance would stop following onecoat.
 - herdr: `toml_edit` navigates to `theme`, sets owned values, and creates missing tables; its decoration model preserves comments and blank lines. The result is validated by `herdr config check` before the temp file replaces the original.
-- omp: both slot files are generated wholesale, so no preservation logic is needed; `config.yml` is edited only when a pinned name differs from the current value.
+- omp: the applied slot's theme file is generated wholesale from the 69 tokens, so it needs no preservation logic; its name is stable, so a theme switch rewrites content instead of configuration. `config.yml` is spliced line by line and every other byte is kept: only the applied slot's key under `theme` changes, a missing key is inserted with its sibling's indentation, a file without a `theme:` mapping gains one at the end, and a `theme:` that is not a mapping is refused rather than replaced.
 
 Execution resolves every write against the file on disk before anything is written: the plan holds edits, not bytes, so a missing file that onecoat must not invent, a document that does not parse, and a key of the wrong type all fail the apply with every file still as it was.<br>
 Each write then creates the temporary file, backs up the original, replaces it, and re-parses the result; a result that no longer parses is restored from its backup and fails the apply.<br>
@@ -240,7 +242,7 @@ The regression bar for import is a re-render test: import a fixture, apply it, a
 
 ## Testing
 
-- Fixtures are real files: a commented `settings.json` with a pinned-profile case, its spliced golden, a CRLF variant that already carries the other appearance, a broken document, and a real herdr `config.toml` with its comments intact.
+- Fixtures are real files: a commented `settings.json` with a pinned-profile case, its spliced golden, a CRLF variant that already carries the other appearance, a broken document, the harness's vendored token list, and a hand-authored omp `config.yml` with its comments intact and its spliced goldens.
 - Fixtures are stored byte-exact: `.gitattributes` marks `tests/fixtures/**` as `-text`, so the CRLF variants are still CRLF after a fresh clone.
 - Repo conventions no compiler checks live in `tools/tidy`, a dev-only workspace member: every module under `src/` stays free of IO and the environment (N-5) except the edges `src/exec.rs`, `src/main.rs`, `src/targets.rs`, and `src/themes.rs`; Rust sources carry no comments except the crate doc at the top of `src/lib.rs`; an item never starts on the line after a closing brace, so items stay separated by one blank line; two consecutive statements take one blank line when either one spans lines, while a single-line `let` stays glued to the block below it; plan files keep the `<br>` and 20-word rules. `cargo test --workspace` fails on any finding.
 - Each check has a passing and a failing fixture tree under `tools/tidy/fixtures/`, so a check that stops firing fails its own test.
@@ -259,6 +261,7 @@ The regression bar for import is a re-render test: import a fixture, apply it, a
 - Fragments own scheme data; `settings.json` owns only the three keys fragments cannot carry.
 - The fragment is a two-slot store, so applying one slot upserts its scheme instead of regenerating the file; the other slot's scheme is never dropped.
 - A pair keeps the side onecoat did not write: a missing side would fall back to a built-in theme, so a bare string carries over to the other side.
+- omp theme files are written for the applied slot only: the other slot keeps whatever theme it had, and its key is pinned when that slot is applied.
 - Drift is semantic, never byte-based.
 - onecoat never restarts a client; it reloads only what has a documented reload signal.
 - Windows-only for v1, with pure renderers so the other targets' platforms stay reachable.
