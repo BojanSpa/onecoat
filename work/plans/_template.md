@@ -59,7 +59,7 @@
      Every step is an exact command or action with its expected observable result; a green suite is not
      proof, and the slice is done when every step here passes. -->
 
-1. Gates, all clean:<br>`cargo fmt --check`<br>`cargo clippy --all-targets -- -D warnings`<br>`cargo test --all-targets`<br>`RUSTDOCFLAGS="-D warnings" cargo doc --no-deps`<br>
+1. Gates, all clean:<br>`cargo fmt --all --check`<br>`cargo clippy --workspace --all-targets -- -D warnings`<br>`cargo test --workspace --all-targets`<br>`RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps`<br>
 2. COMMAND → EXPECTED OBSERVABLE RESULT.<br>
 3. Live smoke: COMMAND → EXPECTED RESULT, including the change seen in the running program.<br>
 4. Second run: COMMAND → unchanged output, files byte-identical.<br>

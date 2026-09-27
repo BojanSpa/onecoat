@@ -18,7 +18,7 @@ Closes R-12, R-13, R-14, R-15, R-23, R-31.<br>
 ## Approach
 
 1. `Paths` gains `wt_settings`, and `Target` derives `clap::ValueEnum`.<br>`jsonc-parser` joins `Cargo.toml`.<br>`Key` holds dotted names like `profiles.defaults.colorScheme`.<br>Four errors land in `src/error.rs`.<br>They cover a non-object intermediate, a bad document, a failed re-parse, and a missing backup.<br>
-2. A new pure `src/jsonc.rs` exposes `splice(source: &str, edits: &[Edit]) -> Result<String, Error>`.<br>There are three edit kinds.<br>They set a value, set one side of a pair, or upsert an array element.<br>The pair edit takes a fill-from-string flag.<br>Missing intermediates are created.<br>An existing key of the wrong type is an error, never a clobber.<br>The module joins the CI purity grep.<br>
+2. A new pure `src/jsonc.rs` exposes `splice(source: &str, edits: &[Edit]) -> Result<String, Error>`.<br>There are three edit kinds.<br>They set a value, set one side of a pair, or upsert an array element.<br>The pair edit takes a fill-from-string flag.<br>Missing intermediates are created.<br>An existing key of the wrong type is an error, never a clobber.<br>The purity check over `src/` covers it with no list to update.<br>
 3. `src/render/wt.rs` adds the window theme keys.<br>The role table in `docs/architecture.md` is the whole spec.<br>It returns edit data instead of a fragment document.<br>Scheme names stay `onecoat-<slot>`.<br>
 4. `src/plan.rs` splits writes into `Generated` bytes and `Splice(Vec<Edit>)`.<br>The fragment comes first.<br>The pair keys name schemes that the fragment must already carry.<br>
 5. `src/exec.rs` grows `resolve`, which reads fresh, computes the bytes, and records the changed keys.<br>`execute` writes, then re-parses every changed file.<br>It restores the backup when the re-parse fails.<br>`preview` prints the same resolution and touches nothing.<br>
@@ -36,7 +36,7 @@ Closes R-12, R-13, R-14, R-15, R-23, R-31.<br>
 
 1. Gates, all clean:<br>`cargo fmt --check`<br>`cargo clippy --all-targets -- -D warnings`<br>`cargo test --all-targets`<br>`RUSTDOCFLAGS="-D warnings" cargo doc --no-deps`<br>
 2. Focused tests pass: `cargo test --test wt_settings --test cli --test wt_schema`.<br>
-3. The N-5 purity grep over `src/jsonc.rs` finds nothing.<br>
+3. The purity check in `cargo test --workspace` finds nothing in `src/jsonc.rs`.<br>
 4. In a temp root, copy the fixture into a sandbox `LocalState`.<br>`use nord --dry-run` prints the diff and leaves mtimes alone.<br>`use nord` writes both files.<br>Then `settings.json` is byte-equal to the golden.<br>`use nord` again says `unchanged` twice.<br>`use nord --targets omp` skips and writes nothing.<br>
 5. Live smoke: copy the real `settings.json` aside and hash it.<br>Run `use nord`.<br>`settings.json.onecoat.bak` hashes the same.<br>WT's Appearance page offers `onecoat-dark`.<br>Its tab row shows `#0b1018` on `#151b26`.<br>Then restore the copy and re-hash.<br>
 6. Second run of step 4: output unchanged, files byte-identical.<br>
@@ -60,6 +60,6 @@ Everything above landed as written.<br>These are the points where the plan was a
 - The fragment's scheme is now serialized by the CST, which writes keys alphabetically.<br>VS1's serializer wrote `name` first, so `nord-dark-fragment.json` is regenerated.<br>
 - Fixtures grew to five: the commented file, its spliced golden, a CRLF pair, and a broken document.<br>The CRLF golden is not in the plan, and it is what proves the line-ending rule.<br>
 - The architecture rule about counting changed hunks became an owned-key list beside the byte-exact golden.<br>The CST reports keys, not hunks, and the key list fails the same way.<br>
-- The architecture error sketch lists the variants that exist now.<br>The CI purity grep covers `src/jsonc.rs`.<br>
+- The architecture error sketch lists the variants that exist now.<br>The purity check covers `src/jsonc.rs` with no list to maintain.<br>
 - `tests/cli.rs` was rewritten around the settings fixture.<br>Its confinement test now covers both files, and the dry run asserts mtimes.<br>
 - The live smoke ran against the real files with WT already running.<br>The result was byte-equal to the reviewed temp-root document, and both files were restored by hand.<br>

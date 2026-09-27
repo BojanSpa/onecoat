@@ -4,19 +4,16 @@ use std::str::FromStr;
 
 use serde::Serialize;
 
-#[allow(missing_docs)]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize)]
 #[serde(transparent)]
 pub struct ThemeId(String);
 
-#[allow(missing_docs)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum IdProblem {
     Empty,
     BadChar(char),
 }
 
-#[allow(missing_docs)]
 impl ThemeId {
     pub fn parse(raw: &str) -> Result<Self, IdProblem> {
         let mut chars = raw.chars();
@@ -73,7 +70,6 @@ impl fmt::Display for IdProblem {
 
 impl std::error::Error for IdProblem {}
 
-#[allow(missing_docs)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Slot {
@@ -82,7 +78,6 @@ pub enum Slot {
 }
 
 impl Slot {
-    #[allow(missing_docs)]
     pub fn name(self) -> &'static str {
         match self {
             Self::Dark => "dark",
@@ -91,7 +86,6 @@ impl Slot {
     }
 }
 
-#[allow(missing_docs)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Appearance {
@@ -114,7 +108,6 @@ impl fmt::Display for Appearance {
     }
 }
 
-#[allow(missing_docs)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, clap::ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum Target {
@@ -137,7 +130,6 @@ impl fmt::Display for Target {
     }
 }
 
-#[allow(missing_docs)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Origin {

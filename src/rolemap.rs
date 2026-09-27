@@ -1,6 +1,5 @@
 use crate::model::palette::{AnsiSet, AnsiSlot, Base16Entry, Palette};
 
-#[allow(missing_docs)]
 pub fn derived_ansi(palette: &Palette) -> AnsiSet {
     AnsiSet::from(AnsiSlot::ALL.map(|slot| palette[source_entry(slot)]))
 }

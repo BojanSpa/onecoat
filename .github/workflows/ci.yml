@@ -31,25 +31,16 @@ jobs:
           rustup show
 
       - name: Format
-        run: cargo fmt --check
+        run: cargo fmt --all --check
 
       - name: Clippy
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
       - name: Test
-        run: cargo test --all-targets
+        run: cargo test --workspace --all-targets
 
       - name: Docs
-        run: cargo doc --no-deps
-
-      - name: Rendering is pure (N-5)
-        run: |
-          $hits = Get-ChildItem -Recurse -File -Include *.rs src/model, src/render, src/jsonc.rs, src/rolemap.rs, src/validate.rs |
-              Select-String -Pattern 'std::fs|std::process|std::env'
-          if ($hits) {
-              $hits
-              throw 'a pure module reaches for IO or the environment'
-          }
+        run: cargo doc --workspace --no-deps
 
       - name: Release binary is static (N-2)
         run: |

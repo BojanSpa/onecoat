@@ -62,13 +62,13 @@
 # Definition of Done
 
 ```sh
-cargo fmt --check
-cargo clippy --all-targets -- -D warnings
-cargo test --all-targets
-RUSTDOCFLAGS="-D warnings" cargo doc --no-deps
+cargo fmt --all --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace --all-targets
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
 ```
 
-- Public items documented where their name cannot say it; `#[allow(missing_docs)]` marks the rest.
+- Repo conventions no compiler checks live in `tools/tidy`; `cargo run -p tidy` reports them compactly, and `cargo test --workspace` fails on any finding.
 - Behavior proven by running the real binary, not tests alone.
 - No new `unsafe` without a safety justification.
 - No dead code, stubs, `#[allow(dead_code)]`, or leftover TODO markers.

@@ -2,7 +2,6 @@ use std::fmt;
 
 use serde::{Serialize, Serializer};
 
-#[allow(missing_docs)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct HexColor {
     r: u8,

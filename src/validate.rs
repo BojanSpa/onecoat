@@ -27,7 +27,6 @@ const TOKEN_KEY_HINT: &str = "a token name such as `mdHeading` or `panel_bg`";
 const UNFILLED_SLOT: HexColor = HexColor::from_rgb(0, 0, 0);
 
 impl Theme<Parsed> {
-    #[allow(missing_docs)]
     pub fn validate(self) -> Result<Theme<Validated>, Error> {
         let Theme {
             id,

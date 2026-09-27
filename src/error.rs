@@ -16,7 +16,6 @@ fn missing_base16_names(missing: &[Base16Entry]) -> String {
         .join(", ")
 }
 
-#[allow(missing_docs)]
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("theme `{id}` not found; run `onecoat list` to see the available themes")]
