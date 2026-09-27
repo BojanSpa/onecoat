@@ -1,60 +1,64 @@
-use std::path::{Path, PathBuf};
+use std::collections::BTreeSet;
+use std::path::PathBuf;
 
 use crate::Error;
+use crate::jsonc::Edit;
 use crate::model::ids::Target;
-use crate::render::wt::WtFragment;
+use crate::model::theme::{Theme, Validated};
+use crate::render::wt;
+use crate::targets::Paths;
 
-#[allow(missing_docs)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Absent {
+    Create,
+    Fail,
+}
+
+#[derive(Clone, PartialEq, Debug)]
 pub struct PlannedWrite {
     pub target: Target,
     pub path: PathBuf,
-    pub bytes: Vec<u8>,
+    pub edits: Vec<Edit>,
+    pub absent: Absent,
 }
 
-#[allow(missing_docs)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Plan {
     pub writes: Vec<PlannedWrite>,
 }
 
 impl Plan {
-    #[allow(missing_docs)]
-    pub fn fragment(path: &Path, fragment: &WtFragment) -> Result<Self, Error> {
-        let mut bytes = serde_json::to_string_pretty(fragment)
-            .map_err(|source| Error::JsonEncodeFailed { source })?
-            .into_bytes();
-        bytes.push(b'\n');
+    pub fn wt(paths: &Paths, theme: &Theme<Validated>) -> Result<Self, Error> {
         Ok(Self {
-            writes: vec![PlannedWrite {
-                target: Target::Wt,
-                path: path.to_path_buf(),
-                bytes,
-            }],
+            writes: vec![
+                PlannedWrite {
+                    target: Target::Wt,
+                    path: paths.wt_fragment.clone(),
+                    edits: wt::fragment_edits(theme)?,
+                    absent: Absent::Create,
+                },
+                PlannedWrite {
+                    target: Target::Wt,
+                    path: paths.wt_settings.clone(),
+                    edits: wt::settings_edits(theme)?,
+                    absent: Absent::Fail,
+                },
+            ],
         })
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use std::path::Path;
+    pub fn limited_to(&self, targets: &[Target]) -> Self {
+        Self {
+            writes: self
+                .writes
+                .iter()
+                .filter(|write| targets.contains(&write.target))
+                .cloned()
+                .collect(),
+        }
+    }
 
-    use super::Plan;
-    use crate::model::ids::Target;
-    use crate::render::wt::WtFragment;
-
-    #[test]
-    fn a_fragment_plan_ends_with_a_newline() {
-        let theme = crate::model::theme::Theme::parse(
-            std::path::PathBuf::from("themes/nord.toml"),
-            crate::themes::BUNDLED[0].1,
-            crate::model::ids::Origin::Bundled,
-        )
-        .unwrap()
-        .validate()
-        .unwrap();
-        let plan =
-            Plan::fragment(Path::new("schemes.json"), &WtFragment::for_theme(&theme)).unwrap();
-        assert_eq!(plan.writes.len(), 1);
-        assert_eq!(plan.writes[0].target, Target::Wt);
-        assert!(plan.writes[0].bytes.ends_with(b"\n"));
+    pub fn targets(&self) -> BTreeSet<Target> {
+        self.writes.iter().map(|write| write.target).collect()
     }
 }

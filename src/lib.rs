@@ -7,6 +7,8 @@ pub mod error;
 #[allow(missing_docs)]
 pub mod exec;
 #[allow(missing_docs)]
+pub mod jsonc;
+#[allow(missing_docs)]
 pub mod model;
 #[allow(missing_docs)]
 pub mod plan;

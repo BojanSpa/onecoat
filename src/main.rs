@@ -5,10 +5,9 @@ use serde::Serialize;
 
 use onecoat::Error;
 use onecoat::exec::{self, WriteOutcome};
-use onecoat::model::ids::{Appearance, Origin, Slot, ThemeId};
+use onecoat::model::ids::{Appearance, Origin, Slot, Target, ThemeId};
 use onecoat::model::theme::{Theme, Validated};
 use onecoat::plan::Plan;
-use onecoat::render::wt::WtFragment;
 use onecoat::targets::Paths;
 use onecoat::themes::ThemeSet;
 
@@ -42,6 +41,18 @@ struct ReadArgs {
 struct UseArgs {
     #[arg(help = "Theme id, as printed by `onecoat list`")]
     id: ThemeId,
+    #[arg(
+        long,
+        help = "Print the planned writes and the keys they change, without writing"
+    )]
+    dry_run: bool,
+    #[arg(
+        long,
+        value_enum,
+        value_delimiter = ',',
+        help = "Apply only to these targets: wt, herdr, omp (default: all)"
+    )]
+    targets: Vec<Target>,
 }
 
 fn main() -> ExitCode {
@@ -58,7 +69,7 @@ fn run(cli: Cli) -> Result<(), Error> {
     let paths = Paths::resolve()?;
     match cli.command {
         Command::List(args) => list(&paths, args),
-        Command::Use(args) => apply(&paths, &args.id),
+        Command::Use(args) => apply(&paths, &args),
     }
 }
 
@@ -72,18 +83,41 @@ fn list(paths: &Paths, args: ReadArgs) -> Result<(), Error> {
     }
 }
 
-fn apply(paths: &Paths, id: &ThemeId) -> Result<(), Error> {
+fn apply(paths: &Paths, args: &UseArgs) -> Result<(), Error> {
     let themes = ThemeSet::load(&paths.user_themes)?;
     let theme = themes
-        .get(id.as_str())
-        .ok_or_else(|| Error::ThemeNotFound { id: id.clone() })?;
-    let plan = Plan::fragment(&paths.wt_fragment, &WtFragment::for_theme(theme))?;
-    for report in exec::execute(&plan)? {
-        let verb = match report.outcome {
-            WriteOutcome::Written => "wrote",
-            WriteOutcome::Unchanged => "unchanged",
-        };
-        println!("{verb} {}", report.path.display());
+        .get(args.id.as_str())
+        .ok_or_else(|| Error::ThemeNotFound {
+            id: args.id.clone(),
+        })?;
+    let targets = if args.targets.is_empty() {
+        Target::ALL.to_vec()
+    } else {
+        args.targets.clone()
+    };
+    let plan = Plan::wt(paths, theme)?.limited_to(&targets);
+
+    if args.dry_run {
+        for line in exec::preview(&plan)? {
+            println!("{line}");
+        }
+    } else {
+        for report in exec::execute(&plan)? {
+            let verb = match report.outcome {
+                WriteOutcome::Written => "wrote",
+                WriteOutcome::Unchanged => "unchanged",
+            };
+            println!("{verb} {}", report.path.display());
+        }
+    }
+
+    if !args.targets.is_empty() {
+        let written = plan.targets();
+        for target in &targets {
+            if !written.contains(target) {
+                println!("no writer for {target}");
+            }
+        }
     }
     Ok(())
 }

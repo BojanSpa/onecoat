@@ -115,11 +115,26 @@ impl fmt::Display for Appearance {
 }
 
 #[allow(missing_docs)]
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, clap::ValueEnum)]
+#[serde(rename_all = "lowercase")]
 pub enum Target {
     Wt,
     Herdr,
     Omp,
+}
+
+impl Target {
+    pub const ALL: [Self; 3] = [Self::Wt, Self::Herdr, Self::Omp];
+}
+
+impl fmt::Display for Target {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Wt => f.write_str("wt"),
+            Self::Herdr => f.write_str("herdr"),
+            Self::Omp => f.write_str("omp"),
+        }
+    }
 }
 
 #[allow(missing_docs)]

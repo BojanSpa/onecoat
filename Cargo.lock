@@ -808,6 +808,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "jsonc-parser"
+version = "0.33.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ff5a48f48971be8e762a6ff955725a0802b6e46c441057992da5a673db9fd3a"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
 name = "jsonschema"
 version = "0.58.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1014,6 +1023,7 @@ name = "onecoat"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "jsonc-parser",
  "jsonschema",
  "serde",
  "serde_json",

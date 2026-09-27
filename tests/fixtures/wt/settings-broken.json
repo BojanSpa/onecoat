@@ -1,0 +1,9 @@
+{
+    "profiles": {
+        "defaults": {
+            "colorScheme": "onecoat-dark"
+        }
+    },
+    "themes": [],
+    "useAcrylicInTabRow":
+}

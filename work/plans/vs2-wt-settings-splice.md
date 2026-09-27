@@ -54,4 +54,12 @@ Closes R-12, R-13, R-14, R-15, R-23, R-31.<br>
 
 Everything above landed as written.<br>These are the points where the plan was adjusted while implementing it.<br>
 
-- ADJUSTMENT — why.<br>
+- `Plan::wt` builds both Windows Terminal writes and tags each with an `Absent` policy.<br>The fragment starts from `{}`; a missing `settings.json` fails the apply.<br>
+- `PlannedWrite` carries edits, not bytes.<br>`exec::resolve` reads the file and computes the text, which is what makes R-13 true for a plan built once.<br>
+- `--targets` prints `no writer for <target>` only when the flag was given.<br>Without it every target is planned, so nothing is reported.<br>
+- The fragment's scheme is now serialized by the CST, which writes keys alphabetically.<br>VS1's serializer wrote `name` first, so `nord-dark-fragment.json` is regenerated.<br>
+- Fixtures grew to five: the commented file, its spliced golden, a CRLF pair, and a broken document.<br>The CRLF golden is not in the plan, and it is what proves the line-ending rule.<br>
+- The architecture rule about counting changed hunks became an owned-key list beside the byte-exact golden.<br>The CST reports keys, not hunks, and the key list fails the same way.<br>
+- The architecture error sketch lists the variants that exist now.<br>The CI purity grep covers `src/jsonc.rs`.<br>
+- `tests/cli.rs` was rewritten around the settings fixture.<br>Its confinement test now covers both files, and the dry run asserts mtimes.<br>
+- The live smoke ran against the real files with WT already running.<br>The result was byte-equal to the reviewed temp-root document, and both files were restored by hand.<br>
