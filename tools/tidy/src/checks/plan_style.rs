@@ -17,8 +17,10 @@ impl Check for PlanStyle {
             if EXEMPT.contains(&source.path.as_str()) {
                 continue;
             }
+
             found.extend(violations(self.id(), &source));
         }
+
         Ok(found)
     }
 }
@@ -35,9 +37,11 @@ fn violations(check: &'static str, source: &Source) -> Vec<Diagnostic> {
             fenced = !fenced;
             continue;
         }
+
         if fenced || trimmed.is_empty() || trimmed.starts_with('#') {
             continue;
         }
+
         if visible.trim_end().ends_with("<br>") {
             found.extend(long_sentences(check, &source.path, index + 1, &visible));
         } else {
@@ -50,6 +54,7 @@ fn violations(check: &'static str, source: &Source) -> Vec<Diagnostic> {
             });
         }
     }
+
     found
 }
 
@@ -69,8 +74,10 @@ fn long_sentences(check: &'static str, path: &str, line: usize, text: &str) -> V
                 ),
             });
         }
+
         column += sentence.chars().count() + "<br>".len();
     }
+
     found
 }
 

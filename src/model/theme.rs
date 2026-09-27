@@ -98,6 +98,7 @@ impl Theme<Parsed> {
         }
 
         let raw_id = string_field(&table, "id", &path)?;
+
         let id = ThemeId::parse(raw_id).map_err(|problem| match problem {
             IdProblem::Empty => Error::ThemeIdEmpty { path: path.clone() },
             IdProblem::BadChar(ch) => Error::ThemeIdInvalidChar {
@@ -106,7 +107,9 @@ impl Theme<Parsed> {
                 ch,
             },
         })?;
+
         let name = string_field(&table, "name", &path)?.to_owned();
+
         let appearance = match string_field(&table, "appearance", &path)? {
             "dark" => Appearance::Dark,
             "light" => Appearance::Light,
@@ -117,11 +120,13 @@ impl Theme<Parsed> {
                 });
             }
         };
+
         let derived = match table.get("derived") {
             None => false,
             Some(Value::Boolean(value)) => *value,
             Some(other) => return Err(field_type(&path, "derived", "a boolean", other)),
         };
+
         let palette = match table.get("palette") {
             None => {
                 return Err(Error::MissingField {
@@ -132,11 +137,13 @@ impl Theme<Parsed> {
             Some(Value::Table(table)) => to_map(table),
             Some(other) => return Err(field_type(&path, "palette", "a table", other)),
         };
+
         let ansi = match table.get("ansi") {
             None => BTreeMap::new(),
             Some(Value::Table(table)) => to_map(table),
             Some(other) => return Err(field_type(&path, "ansi", "a table", other)),
         };
+
         let mut targets = BTreeMap::new();
         match table.get("targets") {
             None => {}

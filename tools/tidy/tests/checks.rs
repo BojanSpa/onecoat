@@ -31,10 +31,12 @@ fn positions(diagnostics: &[Diagnostic]) -> Vec<String> {
 #[test]
 fn the_purity_check_flags_every_way_a_pure_module_can_reach_out() {
     let diagnostics = findings("purity", "purity/fails");
+
     assert_eq!(
         positions(&diagnostics),
         ["src/jsonc.rs:2", "src/plan.rs:2", "src/render/wt.rs:1"]
     );
+
     assert!(
         diagnostics[2].message.contains("std::env"),
         "a use tree is still a reach out: {}",
@@ -52,6 +54,7 @@ fn the_purity_check_stops_when_an_expected_file_is_gone() {
     let error = check("purity")
         .run(&repo("purity/missing"))
         .expect_err("an edge module the check expects is missing");
+
     assert!(matches!(error, Error::CheckTargetMissing { .. }), "{error}");
 }
 
@@ -75,6 +78,59 @@ fn the_comment_check_lets_the_crate_doc_through() {
 }
 
 #[test]
+fn the_spacing_check_flags_items_that_start_right_after_a_closing_brace() {
+    assert_eq!(
+        positions(&findings("item-spacing", "item-spacing/fails")),
+        [
+            "src/lib.rs:5",
+            "src/lib.rs:12",
+            "src/lib.rs:17",
+            "src/lib.rs:20"
+        ]
+    );
+}
+
+#[test]
+fn the_spacing_check_leaves_bodies_uses_and_literals_alone() {
+    assert!(findings("item-spacing", "item-spacing/passes").is_empty());
+}
+
+#[test]
+fn the_statement_check_flags_bodies_without_a_blank_line() {
+    let diagnostics = findings("statement-spacing", "statement-spacing/fails");
+
+    assert_eq!(
+        positions(&diagnostics),
+        [
+            "src/lib.rs:5",
+            "src/lib.rs:13",
+            "src/lib.rs:24",
+            "src/lib.rs:32",
+            "src/lib.rs:34"
+        ]
+    );
+
+    assert!(
+        diagnostics[0].message.contains("tail expression"),
+        "the tail case reads differently: {}",
+        diagnostics[0].message
+    );
+}
+
+#[test]
+fn the_statement_check_flags_a_blank_line_that_unglues_a_single_line_let() {
+    assert_eq!(
+        positions(&findings("statement-spacing", "statement-spacing/glued")),
+        ["src/lib.rs:3"]
+    );
+}
+
+#[test]
+fn the_statement_check_leaves_compliant_bodies_alone() {
+    assert!(findings("statement-spacing", "statement-spacing/passes").is_empty());
+}
+
+#[test]
 fn the_plan_check_flags_a_long_sentence_and_a_missing_break() {
     assert_eq!(
         positions(&findings("plan-style", "plan-style/fails")),
@@ -92,6 +148,7 @@ fn the_plan_check_skips_a_merged_plan() {
     let exempt = repo("plan-style/passes")
         .read("work/plans/vs1-wt-scheme-fragment.md")
         .expect("the merged plan is there");
+
     assert!(exempt.contains("A line with no br at the end."));
     assert!(findings("plan-style", "plan-style/passes").is_empty());
 }

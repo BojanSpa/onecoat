@@ -14,8 +14,10 @@ impl Paths {
         let local = env::var_os("LOCALAPPDATA").ok_or(Error::EnvMissing {
             var: "LOCALAPPDATA",
         })?;
+
         let roaming = env::var_os("APPDATA").ok_or(Error::EnvMissing { var: "APPDATA" })?;
         let local = PathBuf::from(local);
+
         Ok(Self {
             wt_fragment: local
                 .join("Microsoft")

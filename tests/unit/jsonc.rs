@@ -17,6 +17,7 @@ fn splice_ok(source: &str, edits: &[Edit]) -> Splice {
 #[test]
 fn a_missing_key_is_inserted_after_the_last_one() {
     let source = "{\n    \"a\": 1\n}";
+
     let spliced = splice_ok(
         source,
         &[Edit::Set {
@@ -29,6 +30,7 @@ fn a_missing_key_is_inserted_after_the_last_one() {
         spliced.text,
         "{\n    \"a\": 1,\n    \"theme\": {\n        \"dark\": \"onecoat-dark\"\n    }\n}"
     );
+
     assert_eq!(spliced.changed, [key("theme")]);
 }
 
@@ -48,12 +50,14 @@ fn missing_intermediates_are_created() {
         spliced.text,
         "{\n  \"profiles\": {\n    \"defaults\": {\n      \"colorScheme\": {\n        \"dark\": \"onecoat-dark\"\n      }\n    }\n  }\n}\n"
     );
+
     assert_eq!(spliced.changed, [key("profiles.defaults.colorScheme")]);
 }
 
 #[test]
 fn a_pair_side_leaves_the_other_appearance_alone() {
     let source = "{\"theme\": {\"light\": \"light\", \"dark\": \"dark\"}}";
+
     let spliced = splice_ok(
         source,
         &[Edit::Pair {
@@ -68,12 +72,14 @@ fn a_pair_side_leaves_the_other_appearance_alone() {
         spliced.text,
         "{\"theme\": {\"light\": \"light\", \"dark\": \"onecoat-dark\"}}"
     );
+
     assert_eq!(spliced.changed, [key("theme")]);
 }
 
 #[test]
 fn a_pair_carries_a_bare_string_into_the_other_side_when_asked() {
     let with_string = "{\n  \"theme\": \"dark\"\n}\n";
+
     let carried = splice_ok(
         with_string,
         &[Edit::Pair {
@@ -83,6 +89,7 @@ fn a_pair_carries_a_bare_string_into_the_other_side_when_asked() {
             fill: Fill::FromString,
         }],
     );
+
     assert_eq!(
         carried.text,
         "{\n  \"theme\": {\n    \"dark\": \"onecoat-dark\",\n    \"light\": \"dark\"\n  }\n}\n"
@@ -97,6 +104,7 @@ fn a_pair_carries_a_bare_string_into_the_other_side_when_asked() {
             fill: Fill::BuiltIn,
         }],
     );
+
     assert_eq!(
         dropped.text,
         "{\n  \"theme\": {\n    \"dark\": \"onecoat-dark\"\n  }\n}\n"
@@ -106,6 +114,7 @@ fn a_pair_carries_a_bare_string_into_the_other_side_when_asked() {
 #[test]
 fn an_array_element_is_replaced_in_place_and_foreign_elements_survive() {
     let source = "{\n  \"themes\": [\n    {\n      \"name\": \"mine\",\n      \"frame\": \"#000000\"\n    },\n    {\n      \"name\": \"onecoat-dark\",\n      \"frame\": \"#111111\"\n    }\n  ]\n}\n";
+
     let spliced = splice_ok(
         source,
         &[Edit::Element {
@@ -119,6 +128,7 @@ fn an_array_element_is_replaced_in_place_and_foreign_elements_survive() {
         spliced.text,
         "{\n  \"themes\": [\n    {\n      \"name\": \"mine\",\n      \"frame\": \"#000000\"\n    },\n    {\n      \"frame\": \"#0b1018\",\n      \"name\": \"onecoat-dark\"\n    }\n  ]\n}\n"
     );
+
     assert_eq!(spliced.changed, [key("themes")]);
 }
 
@@ -176,6 +186,7 @@ fn a_created_document_keeps_the_seed_around_the_new_key() {
 #[test]
 fn comments_line_endings_and_indentation_survive() {
     let source = "{\r\n  // the theme\r\n  \"a\": 1,\r\n  \"theme\": \"dark\"\r\n}";
+
     let spliced = splice_ok(
         source,
         &[Edit::Pair {
@@ -207,6 +218,7 @@ fn a_second_identical_splice_changes_nothing() {
             value: json!({ "name": "onecoat-dark" }),
         },
     ];
+
     let once = splice_ok("{\n  \"themes\": []\n}\n", &edits);
     let twice = splice_ok(&once.text, &edits);
 
@@ -232,6 +244,7 @@ fn a_key_that_is_not_an_object_is_an_error_rather_than_a_clobber() {
         matches!(&error, Error::KeyNotLocatable { key, .. } if key.to_string() == "profiles"),
         "{error}"
     );
+
     assert!(error.to_string().contains("profiles"), "{error}");
 }
 
@@ -247,6 +260,7 @@ fn a_non_object_document_is_an_error() {
             }],
         )
         .unwrap_err();
+
         assert!(
             matches!(error, Error::KeyNotLocatable { .. }),
             "{source:?} gave {error}"
@@ -266,6 +280,7 @@ fn a_wrongly_typed_key_is_an_error() {
         }],
     )
     .unwrap_err();
+
     assert!(
         matches!(&array, Error::KeyNotLocatable { key, expected, .. } if key.to_string() == "themes" && *expected == "a JSON array"),
         "{array}"
@@ -282,6 +297,7 @@ fn a_wrongly_typed_key_is_an_error() {
         }],
     )
     .unwrap_err();
+
     assert!(
         matches!(&number, Error::KeyNotLocatable { expected, .. } if *expected == "a JSON object or a string"),
         "{number}"
@@ -311,6 +327,7 @@ fn a_broken_document_names_its_line_and_column() {
         ),
         "{error}"
     );
+
     assert!(error.to_string().contains("settings.json"), "{error}");
 }
 
@@ -318,6 +335,7 @@ fn a_broken_document_names_its_line_and_column() {
 fn verify_accepts_valid_jsonc_and_reports_the_broken_line() {
     assert!(verify(Path::new("settings.json"), "{\n  // fine\n  \"a\": 1,\n}\n").is_ok());
     let error = verify(Path::new("settings.json"), "{\"a\": }").unwrap_err();
+
     assert!(
         matches!(error, Error::JsoncUnparseable { line: 1, .. }),
         "{error}"
@@ -327,6 +345,7 @@ fn verify_accepts_valid_jsonc_and_reports_the_broken_line() {
 #[test]
 fn another_side_of_a_pair_keeps_the_side_it_does_not_own() {
     let source = "{\n  \"theme\": {\n    \"light\": \"light\"\n  }\n}\n";
+
     let spliced = splice_ok(
         source,
         &[Edit::Pair {
@@ -373,6 +392,7 @@ fn a_repoint_moves_only_the_elements_that_pin_a_scheme() {
         spliced.text,
         "{\n  \"profiles\": {\n    \"list\": [\n      {\n        \"name\": \"Command Prompt\",\n        \"colorScheme\": {\n          \"dark\": \"onecoat-dark\",\n          \"light\": \"One Half Dark\"\n        }\n      },\n      {\n        \"name\": \"Ubuntu\"\n      }\n    ]\n  }\n}\n"
     );
+
     assert_eq!(spliced.changed, [key("profiles.list")]);
 }
 
@@ -417,6 +437,7 @@ fn a_repoint_is_a_no_op_when_the_path_is_absent() {
 #[test]
 fn a_repoint_of_a_value_that_is_not_a_pair_is_an_error() {
     let source = "{\n  \"profiles\": {\n    \"list\": [\n      {\n        \"colorScheme\": 7\n      }\n    ]\n  }\n}\n";
+
     let error = splice(
         Path::new("settings.json"),
         source,

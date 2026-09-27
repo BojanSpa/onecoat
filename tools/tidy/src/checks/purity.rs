@@ -28,10 +28,12 @@ impl Check for Purity {
             if IMPURE.contains(&source.path.as_str()) {
                 continue;
             }
+
             for (index, line) in source.text.lines().enumerate() {
                 let Some(reached) = REACHES.iter().copied().find(|name| reaches(line, name)) else {
                     continue;
                 };
+
                 found.push(Diagnostic {
                     path: source.path.clone(),
                     line: index + 1,
@@ -43,6 +45,7 @@ impl Check for Purity {
                 });
             }
         }
+
         Ok(found)
     }
 }
@@ -55,8 +58,10 @@ fn in_braces(line: &str, name: &str) -> bool {
     let Some(start) = line.find("std::{") else {
         return false;
     };
+
     let rest = &line[start + "std::{".len()..];
     let group = rest.split('}').next().unwrap_or(rest);
+
     group
         .split(|ch: char| !ch.is_alphanumeric() && ch != '_')
         .any(|token| token == name)

@@ -112,11 +112,13 @@ fn tree(root: &Path) -> Vec<String> {
         for entry in std::fs::read_dir(dir).unwrap() {
             let path = entry.unwrap().path();
             found.push(path.strip_prefix(root).unwrap().display().to_string());
+
             if path.is_dir() {
                 walk(root, &path, found);
             }
         }
     }
+
     let mut found = Vec::new();
     walk(root, root, &mut found);
     found.sort();
@@ -128,10 +130,12 @@ fn list_prints_the_bundled_theme() {
     let sandbox = Sandbox::new();
     let output = sandbox.run(&["list"]);
     assert_eq!(code(&output), 0);
+
     assert_eq!(
         stdout(&output),
         "id   appearance origin  name\nnord dark       bundled Nord\n"
     );
+
     assert!(output.stderr.is_empty(), "{}", stderr(&output));
 }
 
@@ -140,6 +144,7 @@ fn list_json_prints_machine_readable_rows() {
     let sandbox = Sandbox::new();
     let output = sandbox.run(&["list", "--json"]);
     assert_eq!(code(&output), 0);
+
     let expected = r#"[
   {
     "id": "nord",
@@ -150,8 +155,10 @@ fn list_json_prints_machine_readable_rows() {
   }
 ]
 "#;
+
     assert_eq!(stdout(&output), expected);
     let parsed: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+
     assert_eq!(
         parsed,
         serde_json::json!([{
@@ -162,6 +169,7 @@ fn list_json_prints_machine_readable_rows() {
             "derived": false,
         }])
     );
+
     assert!(output.stderr.is_empty(), "{}", stderr(&output));
 }
 
@@ -183,6 +191,7 @@ fn a_user_theme_shadows_the_bundled_one() {
     let human = stdout(&human);
     let lines: Vec<&str> = human.lines().collect();
     assert_eq!(lines.len(), 2, "{human}");
+
     assert!(
         lines[1].contains("user") && lines[1].contains("Shadow Nord"),
         "{}",
@@ -205,6 +214,7 @@ fn use_writes_the_fragment_and_the_settings_file() {
     let output = sandbox.run(&["use", "nord"]);
     assert_eq!(code(&output), 0, "{}", stderr(&output));
     assert!(output.stderr.is_empty(), "{}", stderr(&output));
+
     assert_eq!(
         stdout(&output),
         format!(
@@ -213,14 +223,17 @@ fn use_writes_the_fragment_and_the_settings_file() {
             settings.display()
         )
     );
+
     assert_eq!(
         std::fs::read(&fragment).unwrap(),
         fixture_bytes("wt/nord-dark-fragment.json")
     );
+
     assert_eq!(
         std::fs::read(&settings).unwrap(),
         fixture_bytes("wt/settings-spliced.json")
     );
+
     assert!(!append_to_file_name(&fragment, ".onecoat.bak").exists());
     assert!(!append_to_file_name(&fragment, ".onecoat.tmp").exists());
     assert!(!append_to_file_name(&settings, ".onecoat.tmp").exists());
@@ -230,18 +243,20 @@ fn use_writes_the_fragment_and_the_settings_file() {
 fn a_missing_settings_file_fails_without_writing_the_fragment() {
     let sandbox = Sandbox::new();
     let settings = sandbox.settings();
-
     for args in [vec!["use", "nord"], vec!["use", "nord", "--dry-run"]] {
         let output = sandbox.run(&args);
         assert_eq!(code(&output), 3, "args {args:?}");
         assert!(stdout(&output).is_empty(), "{}", stdout(&output));
         let message = stderr(&output);
+
         assert!(
             message.contains(&settings.display().to_string()),
             "{message}"
         );
+
         assert!(message.contains("retry"), "{message}");
     }
+
     assert!(!sandbox.fragment().exists());
     assert!(!sandbox.settings().exists());
 }
@@ -255,15 +270,19 @@ fn a_broken_settings_file_is_reported_and_left_alone() {
     assert_eq!(code(&output), 3, "{}", stderr(&output));
     assert!(stdout(&output).is_empty(), "{}", stdout(&output));
     let message = stderr(&output);
+
     assert!(
         message.contains(&settings.display().to_string()),
         "{message}"
     );
+
     assert!(message.contains("line 9"), "{message}");
+
     assert_eq!(
         std::fs::read(&settings).unwrap(),
         fixture_bytes("wt/settings-broken.json")
     );
+
     assert!(!sandbox.fragment().exists());
     assert!(!append_to_file_name(&settings, ".onecoat.bak").exists());
 }
@@ -278,6 +297,7 @@ fn a_second_use_neither_rewrites_nor_rebacks_up() {
 
     let first = sandbox.run(&["use", "nord"]);
     assert_eq!(code(&first), 0, "{}", stderr(&first));
+
     let stamps = [
         stamp(&fragment),
         stamp(&settings),
@@ -287,6 +307,7 @@ fn a_second_use_neither_rewrites_nor_rebacks_up() {
 
     let second = sandbox.run(&["use", "nord"]);
     assert_eq!(code(&second), 0, "{}", stderr(&second));
+
     assert_eq!(
         stdout(&second),
         format!(
@@ -295,22 +316,27 @@ fn a_second_use_neither_rewrites_nor_rebacks_up() {
             settings.display()
         )
     );
+
     assert_eq!(
         std::fs::read(&fragment).unwrap(),
         fixture_bytes("wt/nord-dark-fragment.json")
     );
+
     assert_eq!(
         std::fs::read(&settings).unwrap(),
         fixture_bytes("wt/settings-spliced.json")
     );
+
     assert_eq!(
         std::fs::read(&fragment_backup).unwrap(),
         fixture_bytes("wt/previous-fragment.json")
     );
+
     assert_eq!(
         std::fs::read(&settings_backup).unwrap(),
         fixture_bytes("wt/settings.json")
     );
+
     assert_eq!(
         [
             stamp(&fragment),
@@ -330,14 +356,17 @@ fn use_backs_up_both_files_it_replaces() {
 
     let output = sandbox.run(&["use", "nord"]);
     assert_eq!(code(&output), 0, "{}", stderr(&output));
+
     assert_eq!(
         std::fs::read(append_to_file_name(&fragment, ".onecoat.bak")).unwrap(),
         fixture_bytes("wt/previous-fragment.json")
     );
+
     assert_eq!(
         std::fs::read(append_to_file_name(&settings, ".onecoat.bak")).unwrap(),
         fixture_bytes("wt/settings.json")
     );
+
     assert!(!append_to_file_name(&fragment, ".onecoat.tmp").exists());
     assert!(!append_to_file_name(&settings, ".onecoat.tmp").exists());
 }
@@ -355,15 +384,18 @@ fn a_failed_backup_leaves_the_settings_file_intact() {
     assert!(stdout(&output).is_empty(), "{}", stdout(&output));
     let message = stderr(&output);
     assert!(message.contains(&backup.display().to_string()), "{message}");
+
     assert_eq!(
         std::fs::read(&fragment).unwrap(),
         fixture_bytes("wt/previous-fragment.json")
     );
+
     assert_eq!(
         std::fs::read(&settings).unwrap(),
         fixture_bytes("wt/settings.json"),
         "the settings file is not written when an earlier write fails"
     );
+
     assert!(!append_to_file_name(&fragment, ".onecoat.tmp").exists());
 }
 
@@ -377,6 +409,7 @@ fn dry_run_names_the_planned_files_and_the_changed_keys() {
     let output = sandbox.run(&["use", "nord", "--dry-run"]);
     assert_eq!(code(&output), 0, "{}", stderr(&output));
     assert!(output.stderr.is_empty(), "{}", stderr(&output));
+
     assert_eq!(
         stdout(&output),
         format!(
@@ -385,11 +418,14 @@ fn dry_run_names_the_planned_files_and_the_changed_keys() {
             settings.display()
         )
     );
+
     assert!(!fragment.exists(), "dry-run creates nothing");
+
     assert_eq!(
         std::fs::read(&settings).unwrap(),
         fixture_bytes("wt/settings.json")
     );
+
     assert_eq!(stamp(&settings), stamp_before);
     assert!(!append_to_file_name(&settings, ".onecoat.bak").exists());
     assert!(!append_to_file_name(&settings, ".onecoat.tmp").exists());
@@ -403,6 +439,7 @@ fn dry_run_after_an_apply_reports_nothing_to_do() {
 
     let output = sandbox.run(&["use", "nord", "--dry-run"]);
     assert_eq!(code(&output), 0, "{}", stderr(&output));
+
     assert_eq!(
         stdout(&output),
         format!(
@@ -411,10 +448,12 @@ fn dry_run_after_an_apply_reports_nothing_to_do() {
             settings.display()
         )
     );
+
     assert_eq!(
         std::fs::read(&settings).unwrap(),
         fixture_bytes("wt/settings-spliced.json")
     );
+
     assert!(!append_to_file_name(&settings, ".onecoat.bak").exists());
 }
 
@@ -422,7 +461,6 @@ fn dry_run_after_an_apply_reports_nothing_to_do() {
 fn targets_limit_the_apply() {
     let sandbox = Sandbox::new();
     let settings = sandbox.install_settings("wt/settings.json");
-
     for (value, expected) in [
         ("omp", "no writer for omp\n"),
         ("herdr,omp", "no writer for herdr\nno writer for omp\n"),
@@ -431,6 +469,7 @@ fn targets_limit_the_apply() {
         assert_eq!(code(&output), 0, "--targets {value}: {}", stderr(&output));
         assert_eq!(stdout(&output), expected, "--targets {value}");
         assert!(!sandbox.fragment().exists(), "--targets {value}");
+
         assert_eq!(
             std::fs::read(&settings).unwrap(),
             fixture_bytes("wt/settings.json"),
@@ -440,6 +479,7 @@ fn targets_limit_the_apply() {
 
     let limited = sandbox.run(&["use", "nord", "--targets", "wt"]);
     assert_eq!(code(&limited), 0, "{}", stderr(&limited));
+
     assert_eq!(
         stdout(&limited),
         format!(
@@ -475,6 +515,7 @@ fn usage_errors_exit_two() {
         let output = sandbox.run(&args);
         assert_eq!(code(&output), 2, "args {args:?}");
     }
+
     let version = sandbox.run(&["--version"]);
     assert_eq!(code(&version), 0);
 }
@@ -508,14 +549,17 @@ fn writes_stay_inside_the_two_windows_terminal_files() {
             || path == settings
             || path == append_to_file_name(&settings, ".onecoat.bak")
     };
+
     let unexpected: Vec<String> = tree(sandbox.root())
         .into_iter()
         .map(|entry| sandbox.root().join(entry))
         .filter(|path| !path.is_dir() && !allowed(path))
         .map(|path| path.display().to_string())
         .collect();
+
     assert!(unexpected.is_empty(), "unexpected files: {unexpected:?}");
     assert!(fragment.exists());
+
     assert_eq!(
         std::fs::read(&settings).unwrap(),
         fixture_bytes("wt/settings-spliced.json")
@@ -530,6 +574,7 @@ fn profile_color_scheme_all_repoints_every_pin() {
 
     let output = sandbox.run(&["use", "nord", "--profile-color-scheme", "all"]);
     assert_eq!(code(&output), 0, "{}", stderr(&output));
+
     assert_eq!(
         stdout(&output),
         format!(
@@ -538,6 +583,7 @@ fn profile_color_scheme_all_repoints_every_pin() {
             settings.display()
         )
     );
+
     assert_eq!(
         std::fs::read(&settings).unwrap(),
         fixture_bytes("wt/settings-repointed.json")
@@ -545,6 +591,7 @@ fn profile_color_scheme_all_repoints_every_pin() {
 
     let again = sandbox.run(&["use", "nord", "--profile-color-scheme", "all"]);
     assert_eq!(code(&again), 0, "{}", stderr(&again));
+
     assert_eq!(
         stdout(&again),
         format!(
@@ -553,6 +600,7 @@ fn profile_color_scheme_all_repoints_every_pin() {
             settings.display()
         )
     );
+
     assert_eq!(
         std::fs::read(&settings).unwrap(),
         fixture_bytes("wt/settings-repointed.json")

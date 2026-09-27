@@ -12,10 +12,12 @@ fn base16_entries_resolve_case_insensitively() {
 #[test]
 fn ansi_slots_use_the_windows_terminal_spelling() {
     assert_eq!(AnsiSlot::from_name("purple"), Some(AnsiSlot::Purple));
+
     assert_eq!(
         AnsiSlot::from_name("brightPurple"),
         Some(AnsiSlot::BrightPurple)
     );
+
     assert_eq!(AnsiSlot::from_name("magenta"), None);
     assert_eq!(AnsiSlot::from_name("Purple"), None);
 }

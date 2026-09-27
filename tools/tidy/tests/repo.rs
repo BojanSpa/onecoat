@@ -5,11 +5,14 @@ fn the_repository_is_tidy() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
         .join("..");
+
     let diagnostics = tidy::run(&root).expect("the checks run");
+
     let reported = diagnostics
         .iter()
         .map(|diagnostic| diagnostic.to_string())
         .collect::<Vec<_>>();
+
     assert!(reported.is_empty(), "{reported:#?}");
 }
 

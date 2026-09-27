@@ -21,9 +21,11 @@ impl ThemeId {
         if !first.is_ascii_lowercase() && !first.is_ascii_digit() {
             return Err(IdProblem::BadChar(first));
         }
+
         if let Some(ch) = chars.find(|ch| !is_id_continuation_char(*ch)) {
             return Err(IdProblem::BadChar(ch));
         }
+
         Ok(Self(raw.to_owned()))
     }
 

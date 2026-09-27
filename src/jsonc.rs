@@ -41,6 +41,7 @@ impl fmt::Display for Key {
         if self.0.is_empty() {
             return f.write_str("the document root");
         }
+
         f.write_str(&self.0.join("."))
     }
 }
@@ -104,17 +105,21 @@ pub struct Splice {
 
 pub fn splice(path: &Path, source: &str, edits: &[Edit]) -> Result<Splice, Error> {
     let root = parse(path, source)?;
+
     let Some(document) = root.object_value() else {
         return Err(not_an_object(path, &Key::root()));
     };
+
     let mut changed = Vec::new();
     for edit in edits {
         let before = root.to_serde_value();
         apply(path, &document, edit)?;
+
         if root.to_serde_value() != before {
             changed.push(edit.key().clone());
         }
     }
+
     Ok(Splice {
         text: root.to_string(),
         changed,
@@ -189,16 +194,20 @@ fn set_pair(
     fill: Fill,
 ) -> Result<(), Error> {
     let (object, leaf) = holder(path, document, key)?;
+
     let Some(property) = object.get(leaf) else {
         object.append(leaf, pair(side, name, None));
         return Ok(());
     };
+
     let Some(value) = property.value() else {
         property.set_value(pair(side, name, None));
         return Ok(());
     };
+
     if value.as_object().is_some() {
         let child = key.join(side.name());
+
         return set(
             path,
             document,
@@ -206,14 +215,17 @@ fn set_pair(
             CstInputValue::String(name.to_owned()),
         );
     }
+
     let previous = value
         .as_string_lit()
         .and_then(|literal| literal.decoded_value().ok());
+
     match (previous, fill) {
         (Some(previous), Fill::FromString) => property.set_value(pair(side, name, Some(&previous))),
         (Some(_), Fill::BuiltIn) => property.set_value(pair(side, name, None)),
         (None, _) => return Err(not_a_pair(path, key)),
     }
+
     Ok(())
 }
 
@@ -225,17 +237,22 @@ fn set_element(
     value: CstInputValue,
 ) -> Result<(), Error> {
     let (object, leaf) = holder(path, document, key)?;
+
     let Some(property) = object.get(leaf) else {
         object.append(leaf, CstInputValue::Array(vec![value]));
         return Ok(());
     };
+
     let Some(array) = property.array_value() else {
         return Err(not_an_array(path, key));
     };
+
     let elements = array.elements();
+
     let found = elements
         .iter()
         .position(|element| element_name(element).as_deref() == Some(name));
+
     match found {
         Some(index) => {
             elements[index].clone().remove();
@@ -245,6 +262,7 @@ fn set_element(
             array.append(value);
         }
     }
+
     Ok(())
 }
 
@@ -260,63 +278,79 @@ fn set_repoint(
     let Some(location) = locate(document, key) else {
         return Ok(());
     };
+
     let Some(array) = location.array_value() else {
         return Err(not_an_array(path, key));
     };
+
     for element in array.elements() {
         let Some(object) = element.as_object() else {
             continue;
         };
+
         let Some(property) = object.get(field) else {
             continue;
         };
+
         let Some(value) = property.value() else {
             property.set_value(pair(side, name, None));
             continue;
         };
+
         if let Some(inner) = value.as_object() {
             put(&inner, side.name(), CstInputValue::String(name.to_owned()));
             continue;
         }
+
         let Some(previous) = value
             .as_string_lit()
             .and_then(|literal| literal.decoded_value().ok())
         else {
             return Err(not_a_pair(path, key));
         };
+
         let repointed = match fill {
             Fill::FromString => pair(side, name, Some(previous.as_str())),
             Fill::BuiltIn => pair(side, name, None),
         };
+
         property.set_value(repointed);
     }
+
     Ok(())
 }
 
 pub fn pinned(path: &Path, source: &str, key: &Key, field: &str) -> Result<Vec<Pin>, Error> {
     let root = parse(path, source)?;
+
     let Some(document) = root.object_value() else {
         return Err(not_an_object(path, &Key::root()));
     };
+
     let Some(location) = locate(&document, key) else {
         return Ok(Vec::new());
     };
+
     let Some(array) = location.array_value() else {
         return Err(not_an_array(path, key));
     };
+
     let mut pins = Vec::new();
     for (index, element) in array.elements().iter().enumerate() {
         let Some(object) = element.as_object() else {
             continue;
         };
+
         let Some(value) = object.get(field).and_then(|property| property.value()) else {
             continue;
         };
+
         pins.push(Pin {
             name: profile_label(&object, index),
             scheme: pinned_scheme(path, key, &value)?,
         });
     }
+
     Ok(pins)
 }
 
@@ -326,6 +360,7 @@ fn locate(document: &CstObject, key: &Key) -> Option<CstObjectProp> {
     for owner in owners {
         object = object.get(owner)?.object_value()?;
     }
+
     object.get(leaf)
 }
 
@@ -348,10 +383,12 @@ fn profile_label(object: &CstObject, index: usize) -> String {
                     .as_string_lit()
                     .and_then(|lit| lit.decoded_value().ok())
             });
+
         if let Some(label) = label {
             return label;
         }
     }
+
     format!("#{index}")
 }
 
@@ -361,6 +398,7 @@ fn pinned_scheme(path: &Path, key: &Key, value: &CstNode) -> Result<String, Erro
     {
         return Ok(text);
     }
+
     if let Some(object) = value.as_object() {
         let sides: Vec<String> = [Slot::Dark, Slot::Light]
             .into_iter()
@@ -375,10 +413,12 @@ fn pinned_scheme(path: &Path, key: &Key, value: &CstNode) -> Result<String, Erro
                     })
             })
             .collect();
+
         if !sides.is_empty() {
             return Ok(sides.join("/"));
         }
     }
+
     Err(not_a_pair(path, key))
 }
 
@@ -387,12 +427,14 @@ fn pair(side: Slot, name: &str, previous: Option<&str>) -> CstInputValue {
         side.name().to_owned(),
         CstInputValue::String(name.to_owned()),
     )];
+
     if let Some(previous) = previous {
         entries.push((
             other(side).name().to_owned(),
             CstInputValue::String(previous.to_owned()),
         ));
     }
+
     CstInputValue::Object(entries)
 }
 
@@ -419,6 +461,7 @@ fn holder<'k>(
     let Some((leaf, owners)) = key.segments().split_last() else {
         return Err(not_an_object(path, key));
     };
+
     let mut object = document.clone();
     for (index, owner) in owners.iter().enumerate() {
         object = match object.get(owner) {
@@ -431,6 +474,7 @@ fn holder<'k>(
                 .ok_or_else(|| not_an_object(path, &key.prefix(index + 1)))?,
         };
     }
+
     Ok((object, leaf))
 }
 

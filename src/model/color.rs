@@ -15,8 +15,10 @@ impl HexColor {
         if digits.len() != 6 || !digits.bytes().all(|byte| byte.is_ascii_hexdigit()) {
             return None;
         }
+
         let channel =
             |range: std::ops::Range<usize>| u8::from_str_radix(digits.get(range)?, 16).ok();
+
         Some(Self {
             r: channel(0..2)?,
             g: channel(2..4)?,
@@ -37,6 +39,7 @@ impl HexColor {
                 ((value + 0.055) / 1.055).powf(2.4)
             }
         }
+
         0.2126 * linearise(self.r) + 0.7152 * linearise(self.g) + 0.0722 * linearise(self.b)
     }
 }

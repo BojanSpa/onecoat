@@ -37,6 +37,7 @@ impl Theme<Parsed> {
             path,
             data,
         } = self;
+
         let RawTheme {
             palette: raw_palette,
             ansi: raw_ansi,
@@ -65,6 +66,7 @@ impl Theme<Parsed> {
                     });
                 }
             };
+
             for (key, value) in keys {
                 if !is_token_name(key) {
                     return Err(Error::UnknownKey {
@@ -74,6 +76,7 @@ impl Theme<Parsed> {
                         accepted: TOKEN_KEY_HINT.to_owned(),
                     });
                 }
+
                 tokens.insert(key.clone(), token_value(&path, section, key, value)?);
             }
         }
@@ -105,23 +108,28 @@ fn complete_palette(path: &Path, raw: &BTreeMap<String, Value>) -> Result<Palett
         if present[entry.index()] {
             return Err(palette_key_rejected(path, key));
         }
+
         present[entry.index()] = true;
+
         if let Some(color) = value.as_str().and_then(HexColor::parse) {
             slots[entry.index()] = color;
         } else if first_malformed.is_none() {
             first_malformed = Some((key.clone(), value_text(value)));
         }
     }
+
     let missing: Vec<Base16Entry> = Base16Entry::ALL
         .into_iter()
         .filter(|entry| !present[entry.index()])
         .collect();
+
     if !missing.is_empty() {
         return Err(Error::PaletteIncomplete {
             path: path.to_path_buf(),
             missing,
         });
     }
+
     if let Some((key, value)) = first_malformed {
         return Err(Error::MalformedColor {
             path: path.to_path_buf(),
@@ -129,20 +137,24 @@ fn complete_palette(path: &Path, raw: &BTreeMap<String, Value>) -> Result<Palett
             value,
         });
     }
+
     Ok(Palette::from(slots))
 }
 
 fn check_appearance(path: &Path, declared: Appearance, palette: &Palette) -> Result<(), Error> {
     let background = palette[Base16Entry::B00];
     let luminance = background.luminance();
+
     let expected = if luminance >= 0.5 {
         Appearance::Light
     } else {
         Appearance::Dark
     };
+
     if expected == declared {
         return Ok(());
     }
+
     Err(Error::AppearanceMismatch {
         path: path.to_path_buf(),
         background,
@@ -159,6 +171,7 @@ fn check_id_is_free(path: &Path, id: &ThemeId) -> Result<(), Error> {
             id: id.clone(),
         });
     }
+
     Ok(())
 }
 
@@ -172,6 +185,7 @@ fn ansi_with_overrides(
         let slot = AnsiSlot::from_name(key).ok_or_else(|| ansi_unknown(path, key))?;
         ansi[slot] = color_value(path, &format!("ansi.{key}"), value)?;
     }
+
     Ok(ansi)
 }
 
@@ -182,9 +196,11 @@ fn wt_overrides(path: &Path, keys: Option<&BTreeMap<String, Value>>) -> Result<W
         cursor_color: None,
         selection_background: None,
     };
+
     let Some(keys) = keys else {
         return Ok(wt);
     };
+
     for (key, value) in keys {
         let field = match key.as_str() {
             "background" => &mut wt.background,
@@ -200,8 +216,10 @@ fn wt_overrides(path: &Path, keys: Option<&BTreeMap<String, Value>>) -> Result<W
                 });
             }
         };
+
         *field = Some(color_value(path, &format!("targets.wt.{key}"), value)?);
     }
+
     Ok(wt)
 }
 
@@ -245,6 +263,7 @@ fn token_value(
         key: format!("targets.{section}.{key}"),
         value: value_text(value),
     };
+
     match value {
         Value::String(text) => match text.strip_prefix('#') {
             Some(_) => HexColor::parse(text)
