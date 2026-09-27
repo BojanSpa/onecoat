@@ -31,6 +31,7 @@
 # Code style
 
 - Don't write comments, write self-evident code instead; contracts that code cannot carry live in `docs/architecture.md`.
+- Separate items with one blank line; a closing brace is never the line before an item.
 - Newtype domain values; parse at the boundary so validation happens exactly once.
 - Encode state as enums, not booleans: illegal states should be unrepresentable.
 - Model phases with typestate: `Parsed`, `Validated`, `Written` are distinct types, not flags.

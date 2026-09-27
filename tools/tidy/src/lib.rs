@@ -3,6 +3,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 pub mod checks;
+pub mod scan;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

@@ -75,6 +75,24 @@ fn the_comment_check_lets_the_crate_doc_through() {
 }
 
 #[test]
+fn the_spacing_check_flags_items_that_start_right_after_a_closing_brace() {
+    assert_eq!(
+        positions(&findings("item-spacing", "item-spacing/fails")),
+        [
+            "src/lib.rs:5",
+            "src/lib.rs:12",
+            "src/lib.rs:17",
+            "src/lib.rs:20"
+        ]
+    );
+}
+
+#[test]
+fn the_spacing_check_leaves_bodies_uses_and_literals_alone() {
+    assert!(findings("item-spacing", "item-spacing/passes").is_empty());
+}
+
+#[test]
 fn the_plan_check_flags_a_long_sentence_and_a_missing_break() {
     assert_eq!(
         positions(&findings("plan-style", "plan-style/fails")),
