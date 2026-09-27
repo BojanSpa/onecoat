@@ -49,6 +49,7 @@
 
 # Testing
 
+- Unit tests live in the owning crate's `tests/unit/`, mirroring `src/`; the module declares them with `#[cfg(test)] #[path = "..."] mod tests;`. Integration tests stay in `tests/`.
 - Assert observable behavior, boundaries, and error cases; never implementation details or incidental wording.
 - Use real fixtures, not mocks: actual commented `settings.json` and `config.toml` in `tests/fixtures/`.
 - Never touch the live target files; tests run against temp roots and committed fixtures only.
