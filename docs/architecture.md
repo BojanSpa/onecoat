@@ -255,4 +255,4 @@ The regression bar for import is a re-render test: import a fixture, apply it, a
 - onecoat never restarts a client; it reloads only what has a documented reload signal.
 - Windows-only for v1, with pure renderers so the other targets' platforms stay reachable.
 
-Milestones live in [`roadmap.md`](./roadmap.md).<br>
+Milestones live in [`roadmap.md`](../work/roadmap.md).<br>

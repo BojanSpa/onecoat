@@ -6,7 +6,7 @@
 
 - `docs/requirements.md` — behavior contract and source of truth: `R-N` functional and `N-N` non-functional requirements with verification gates.
 - `docs/architecture.md` — how onecoat works: components, target contracts, owned keys, and the pure render→plan→execute pipeline.
-- `docs/roadmap.md` — build order: vertical slices VS1–VS14 across milestones M0–M4; each plan closes its requirement IDs.
+- `work/roadmap.md` — build order: vertical slices VS1–VS14 across milestones M0–M4; each plan closes its requirement IDs.
 
 # Workflow
 
