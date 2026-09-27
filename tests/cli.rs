@@ -436,6 +436,65 @@ fn a_second_use_neither_rewrites_nor_rebacks_up() {
 }
 
 #[test]
+fn a_theme_rewrite_leaves_the_pin_untouched() {
+    let sandbox = Sandbox::new();
+    sandbox.install_settings("wt/settings.json");
+    let omp_config = sandbox.install_config("omp/config.yml");
+    let omp_theme = sandbox.omp_theme("dark");
+
+    let first = sandbox.run(&["use", "nord", "--targets", "omp"]);
+    assert_eq!(code(&first), 0, "{}", stderr(&first));
+
+    let nord: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&omp_theme).unwrap()).unwrap();
+
+    assert_eq!(nord["colors"]["toolPendingBg"], "#0b1018");
+
+    let theme_stamp = stamp(&omp_theme);
+    let config_bytes = std::fs::read(&omp_config).unwrap();
+    let config_stamp = stamp(&omp_config);
+
+    sandbox.install_theme("themes/shadow-nord.toml", "shadow-nord.toml");
+
+    let second = sandbox.run(&["use", "nord", "--targets", "omp"]);
+    assert_eq!(code(&second), 0, "{}", stderr(&second));
+
+    assert_eq!(
+        stdout(&second),
+        format!(
+            "wrote {}\nunchanged {}\n",
+            omp_theme.display(),
+            omp_config.display()
+        )
+    );
+
+    let shadow: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&omp_theme).unwrap()).unwrap();
+
+    assert_eq!(shadow["colors"]["toolPendingBg"], "#101820");
+    assert_ne!(stamp(&omp_theme), theme_stamp);
+    assert_eq!(std::fs::read(&omp_config).unwrap(), config_bytes);
+    assert_eq!(stamp(&omp_config), config_stamp);
+
+    let rewritten = stamp(&omp_theme);
+
+    let third = sandbox.run(&["use", "nord", "--targets", "omp"]);
+    assert_eq!(code(&third), 0, "{}", stderr(&third));
+
+    assert_eq!(
+        stdout(&third),
+        format!(
+            "unchanged {}\nunchanged {}\n",
+            omp_theme.display(),
+            omp_config.display()
+        )
+    );
+
+    assert_eq!(stamp(&omp_theme), rewritten);
+    assert_eq!(stamp(&omp_config), config_stamp);
+}
+
+#[test]
 fn use_backs_up_every_file_it_replaces() {
     let sandbox = Sandbox::new();
     let fragment = sandbox.install_fragment("wt/previous-fragment.json");

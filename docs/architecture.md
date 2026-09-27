@@ -16,7 +16,7 @@ graph LR
   PW --> X["Executor<br/>re-read, backup, atomic replace, re-parse"]
   PH --> X
   PO --> X
-  X --> S["Reload signals<br/>WT auto, herdr server, omp watcher"]
+  X --> S["Reload signals<br/>WT auto, herdr server, omp next launch"]
   X --> ST["state.json"]
   ST --> VER["verify / doctor<br/>drift + coherence"]
 ```
@@ -34,8 +34,8 @@ Verified on the development machine: Windows Terminal 1.24.11911, Herdr 0.9.1-pr
 | wt | `%LOCALAPPDATA%\Microsoft\Windows Terminal\Fragments\onecoat\schemes.json` | `schemes[]`, upserted by `name`, one element per slot | Windows Terminal reloads when its settings file changes, re-reading fragments | vendored `profiles.schema.json` |
 | wt | `%LOCALAPPDATA%\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json` | root `theme` (light/dark pair), root `themes[]`, `profiles.defaults.colorScheme` (pair), per-profile `colorScheme` pins that already exist (repointed only under `--profile-color-scheme all`) | same | same |
 | herdr | `%APPDATA%\herdr\config.toml` | `[theme]` `name`, `auto_switch`, `dark_name`, `light_name`; `[theme.custom]` and its `.dark`/`.light` layers | `herdr server reload-config` | `herdr config check` |
-| omp | `<agent dir>/themes/onecoat-<slot>.json`, written for the applied slot | every required token | file watcher on the active theme file | vendored token list |
-| omp | `<agent dir>/config.yml` | the applied slot's key under `theme` | next launch (the keys are set once) | `omp config get theme.dark` |
+| omp | `<agent dir>/themes/onecoat-<slot>.json`, written for the applied slot | every required token | read when a session starts, not watched | vendored token list |
+| omp | `<agent dir>/config.yml` | the applied slot's key under `theme` | settings watcher on `config.yml` | `omp config get theme.dark` |
 
 Constraints that shape the writers:<br>
 
@@ -44,6 +44,9 @@ Constraints that shape the writers:<br>
 - Herdr resolves themes from the client's local config, so the file above is correct for local use and wrong for a remote client; remote is out of scope.
 - omp built-in themes take precedence over same-named custom files, hence the `onecoat-` prefix.
 - omp's agent directory is `PI_CODING_AGENT_DIR` when that variable is set, and `%USERPROFILE%\.omp\agent` otherwise.
+- omp reads the pinned theme file when a session starts; a rewrite therefore reaches the next session, not a running one.<br>
+- omp 18.3.5 installs its theme watcher only when a session sets a theme itself.<br>On a session that resolved its pin at launch, an atomic replace, an in-place write, a corrupt file, and a settings reload each left the rendering unchanged.<br>
+- When the watcher does run, it filters events to the active theme file, so the `.onecoat.tmp` file onecoat creates and deletes stays invisible to it.<br>
 
 ## Layout
 
@@ -199,7 +202,7 @@ All three writers share one discipline: build a plan from pure data, then execut
 Execution resolves every write against the file on disk before anything is written: the plan holds edits, not bytes, so a missing file that onecoat must not invent, a document that does not parse, and a key of the wrong type all fail the apply with every file still as it was.<br>
 Each write then creates the temporary file, backs up the original, replaces it, and re-parses the result; a result that no longer parses is restored from its backup and fails the apply.<br>
 The plan is ordered — the fragment before `settings.json`, so the scheme a pair names is already there — and the executor stops at the first write failure: there is no rollback, so the files already written stay written.<br>
-Unchanged writes skip the write entirely, which keeps mtimes and watchers quiet.<br>
+Unchanged writes skip the write entirely, so mtimes and file stamps stay as they were.<br>
 A key is reported only when its value differs from the one the file held, so a second apply reports none.<br>
 
 State is written last: `%APPDATA%\onecoat\state.json` holds the slot assignment and the targets the last apply wrote.<br>
@@ -263,7 +266,7 @@ The regression bar for import is a re-render test: import a fixture, apply it, a
 - A pair keeps the side onecoat did not write: a missing side would fall back to a built-in theme, so a bare string carries over to the other side.
 - omp theme files are written for the applied slot only: the other slot keeps whatever theme it had, and its key is pinned when that slot is applied.
 - Drift is semantic, never byte-based.
-- onecoat never restarts a client; it reloads only what has a documented reload signal.
+- onecoat never restarts a client; it reloads only what has a documented reload signal, and omp's signal is its next session.
 - Windows-only for v1, with pure renderers so the other targets' platforms stay reachable.
 
 Milestones live in [`roadmap.md`](../work/roadmap.md).<br>
