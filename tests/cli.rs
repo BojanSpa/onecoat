@@ -51,6 +51,10 @@ impl Sandbox {
         self.root.path().join("onecoat").join("themes")
     }
 
+    fn state(&self) -> PathBuf {
+        self.root.path().join("onecoat").join("state.json")
+    }
+
     fn install(&self, fixture: &str, path: &Path) -> PathBuf {
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::copy(fixture_path(fixture), path).unwrap();
@@ -292,6 +296,7 @@ fn a_second_use_neither_rewrites_nor_rebacks_up() {
     let sandbox = Sandbox::new();
     let fragment = sandbox.install_fragment("wt/previous-fragment.json");
     let settings = sandbox.install_settings("wt/settings.json");
+    let state = sandbox.state();
     let fragment_backup = append_to_file_name(&fragment, ".onecoat.bak");
     let settings_backup = append_to_file_name(&settings, ".onecoat.bak");
 
@@ -301,6 +306,7 @@ fn a_second_use_neither_rewrites_nor_rebacks_up() {
     let stamps = [
         stamp(&fragment),
         stamp(&settings),
+        stamp(&state),
         stamp(&fragment_backup),
         stamp(&settings_backup),
     ];
@@ -338,9 +344,15 @@ fn a_second_use_neither_rewrites_nor_rebacks_up() {
     );
 
     assert_eq!(
+        std::fs::read_to_string(&state).unwrap(),
+        "{\n  \"slots\": {\n    \"dark\": \"nord\",\n    \"light\": null\n  },\n  \"targets\": [\n    \"wt\"\n  ]\n}\n"
+    );
+
+    assert_eq!(
         [
             stamp(&fragment),
             stamp(&settings),
+            stamp(&state),
             stamp(&fragment_backup),
             stamp(&settings_backup),
         ],
@@ -413,13 +425,14 @@ fn dry_run_names_the_planned_files_and_the_changed_keys() {
     assert_eq!(
         stdout(&output),
         format!(
-            "would write {}\n  schemes\nwould write {}\n  theme\n  themes\n  profiles.defaults.colorScheme\n{PIN_NOTE}\n",
+            "would assign dark = nord\nwould write {}\n  schemes\nwould write {}\n  theme\n  themes\n  profiles.defaults.colorScheme\n{PIN_NOTE}\n",
             fragment.display(),
             settings.display()
         )
     );
 
     assert!(!fragment.exists(), "dry-run creates nothing");
+    assert!(!sandbox.state().exists(), "dry-run writes no state");
 
     assert_eq!(
         std::fs::read(&settings).unwrap(),
@@ -443,11 +456,13 @@ fn dry_run_after_an_apply_reports_nothing_to_do() {
     assert_eq!(
         stdout(&output),
         format!(
-            "unchanged {}\nunchanged {}\n{PIN_NOTE}\n",
+            "would assign dark = nord\nunchanged {}\nunchanged {}\n{PIN_NOTE}\n",
             fragment.display(),
             settings.display()
         )
     );
+
+    assert!(!sandbox.state().exists(), "dry-run writes no state");
 
     assert_eq!(
         std::fs::read(&settings).unwrap(),
@@ -535,11 +550,12 @@ fn a_broken_user_theme_fails_both_commands() {
 }
 
 #[test]
-fn writes_stay_inside_the_two_windows_terminal_files() {
+fn writes_stay_inside_the_target_files_and_onecoats_own_directory() {
     let sandbox = Sandbox::new();
     sandbox.install_settings("wt/settings.json");
     let fragment = sandbox.fragment();
     let settings = sandbox.settings();
+    let state = sandbox.state();
 
     let output = sandbox.run(&["use", "nord"]);
     assert_eq!(code(&output), 0, "{}", stderr(&output));
@@ -548,6 +564,7 @@ fn writes_stay_inside_the_two_windows_terminal_files() {
         path.starts_with(fragment.parent().unwrap())
             || path == settings
             || path == append_to_file_name(&settings, ".onecoat.bak")
+            || path == state
     };
 
     let unexpected: Vec<String> = tree(sandbox.root())
@@ -559,6 +576,7 @@ fn writes_stay_inside_the_two_windows_terminal_files() {
 
     assert!(unexpected.is_empty(), "unexpected files: {unexpected:?}");
     assert!(fragment.exists());
+    assert!(state.exists());
 
     assert_eq!(
         std::fs::read(&settings).unwrap(),
@@ -604,5 +622,123 @@ fn profile_color_scheme_all_repoints_every_pin() {
     assert_eq!(
         std::fs::read(&settings).unwrap(),
         fixture_bytes("wt/settings-repointed.json")
+    );
+}
+
+#[test]
+fn current_reports_no_assignment_before_any_use() {
+    let sandbox = Sandbox::new();
+
+    let human = sandbox.run(&["current"]);
+    assert_eq!(code(&human), 0, "{}", stderr(&human));
+
+    assert_eq!(
+        stdout(&human),
+        "slot  theme targets\ndark  none  -\nlight none  -\n"
+    );
+
+    assert!(human.stderr.is_empty(), "{}", stderr(&human));
+
+    let machine = sandbox.run(&["current", "--json"]);
+    assert_eq!(code(&machine), 0, "{}", stderr(&machine));
+
+    assert_eq!(
+        stdout(&machine),
+        "{\n  \"slots\": {\n    \"dark\": null,\n    \"light\": null\n  },\n  \"targets\": []\n}\n"
+    );
+}
+
+#[test]
+fn use_slot_records_the_assignment_and_keeps_the_other_slot() {
+    let sandbox = Sandbox::new();
+    sandbox.install_settings("wt/settings.json");
+    let state = sandbox.state();
+
+    let light = sandbox.run(&["use", "nord", "--slot", "light"]);
+    assert_eq!(code(&light), 0, "{}", stderr(&light));
+    assert!(light.stderr.is_empty(), "{}", stderr(&light));
+
+    assert_eq!(
+        std::fs::read_to_string(&state).unwrap(),
+        "{\n  \"slots\": {\n    \"dark\": null,\n    \"light\": \"nord\"\n  },\n  \"targets\": [\n    \"wt\"\n  ]\n}\n"
+    );
+
+    let dark = sandbox.run(&["use", "nord"]);
+    assert_eq!(code(&dark), 0, "{}", stderr(&dark));
+
+    assert_eq!(
+        std::fs::read_to_string(&state).unwrap(),
+        "{\n  \"slots\": {\n    \"dark\": \"nord\",\n    \"light\": \"nord\"\n  },\n  \"targets\": [\n    \"wt\"\n  ]\n}\n"
+    );
+
+    let human = sandbox.run(&["current"]);
+    assert_eq!(code(&human), 0, "{}", stderr(&human));
+
+    assert_eq!(
+        stdout(&human),
+        "slot  theme targets\ndark  nord  wt\nlight nord  wt\n"
+    );
+
+    let machine = sandbox.run(&["current", "--json"]);
+    let parsed: serde_json::Value = serde_json::from_str(&stdout(&machine)).unwrap();
+
+    assert_eq!(
+        parsed,
+        serde_json::json!({
+            "slots": {"dark": "nord", "light": "nord"},
+            "targets": ["wt"],
+        })
+    );
+}
+
+#[test]
+fn an_apply_without_a_writer_still_records_the_assignment() {
+    let sandbox = Sandbox::new();
+    sandbox.install_settings("wt/settings.json");
+
+    let output = sandbox.run(&["use", "nord", "--slot", "light", "--targets", "omp"]);
+    assert_eq!(code(&output), 0, "{}", stderr(&output));
+    assert_eq!(stdout(&output), "no writer for omp\n");
+
+    let machine = sandbox.run(&["current", "--json"]);
+    let parsed: serde_json::Value = serde_json::from_str(&stdout(&machine)).unwrap();
+
+    assert_eq!(
+        parsed,
+        serde_json::json!({
+            "slots": {"dark": null, "light": "nord"},
+            "targets": [],
+        })
+    );
+}
+
+#[test]
+fn a_malformed_state_file_fails_the_commands_that_read_it() {
+    let sandbox = Sandbox::new();
+    let settings = sandbox.install_settings("wt/settings.json");
+    let state = sandbox.state();
+    std::fs::create_dir_all(state.parent().unwrap()).unwrap();
+    std::fs::write(&state, "{\"slots\": {\"dark\": 7}, \"targets\": []}\n").unwrap();
+
+    for args in [vec!["current"], vec!["use", "nord"]] {
+        let output = sandbox.run(&args);
+        assert_eq!(code(&output), 3, "args {args:?}");
+        assert!(stdout(&output).is_empty(), "args {args:?}");
+
+        let message = stderr(&output);
+
+        assert!(message.contains(&state.display().to_string()), "{message}");
+        assert!(message.contains("slots.dark"), "{message}");
+        assert!(message.contains("delete"), "{message}");
+    }
+
+    assert!(
+        !sandbox.fragment().exists(),
+        "the apply fails before it writes"
+    );
+
+    assert_eq!(
+        std::fs::read(&settings).unwrap(),
+        fixture_bytes("wt/settings.json")
     );
 }

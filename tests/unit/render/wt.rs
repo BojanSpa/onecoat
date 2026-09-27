@@ -33,7 +33,7 @@ fn element(edit: &Edit) -> Value {
 #[test]
 fn every_scheme_key_carries_its_base16_role() {
     let theme = theme("nord", crate::themes::BUNDLED[0].1);
-    let scheme = scheme(&theme).unwrap();
+    let scheme = scheme(&theme, Slot::Dark).unwrap();
     let palette = &theme.data.palette;
     let ansi = &theme.data.ansi;
 
@@ -107,7 +107,7 @@ fn overrides_replace_only_the_roles_they_name() {
         include_str!("../../fixtures/themes/overrides.toml"),
     );
 
-    let scheme = scheme(&theme).unwrap();
+    let scheme = scheme(&theme, Slot::Dark).unwrap();
 
     assert_eq!(colour(&scheme["red"]), "#ff0000");
 
@@ -130,7 +130,7 @@ fn overrides_replace_only_the_roles_they_name() {
 fn the_window_theme_takes_the_slot_and_the_surfaces_from_the_palette() {
     let theme = theme("nord", crate::themes::BUNDLED[0].1);
     let palette = &theme.data.palette;
-    let window = window_theme(&theme).unwrap();
+    let window = window_theme(&theme, Slot::Dark).unwrap();
 
     assert_eq!(window["name"], "onecoat-dark");
     assert_eq!(window["window"]["applicationTheme"], "dark");
@@ -168,7 +168,7 @@ fn the_window_theme_follows_the_background_override() {
         include_str!("../../fixtures/themes/overrides.toml"),
     );
 
-    let window = window_theme(&theme).unwrap();
+    let window = window_theme(&theme, Slot::Dark).unwrap();
 
     assert_eq!(colour(&window["window"]["frame"]), "#101820");
     assert_eq!(colour(&window["tabRow"]["unfocusedBackground"]), "#101820");
@@ -177,7 +177,7 @@ fn the_window_theme_follows_the_background_override() {
 #[test]
 fn the_settings_edits_name_the_pair_the_window_theme_and_the_scheme() {
     let theme = theme("nord", crate::themes::BUNDLED[0].1);
-    let edits = settings_edits(&theme, ProfileScheme::Report).unwrap();
+    let edits = settings_edits(&theme, Slot::Dark, ProfileScheme::Report).unwrap();
     assert_eq!(edits.len(), 3);
 
     assert_eq!(
@@ -207,15 +207,62 @@ fn the_settings_edits_name_the_pair_the_window_theme_and_the_scheme() {
 #[test]
 fn the_fragment_edit_upserts_the_scheme_by_name() {
     let theme = theme("nord", crate::themes::BUNDLED[0].1);
-    let edits = fragment_edits(&theme).unwrap();
+    let edits = fragment_edits(&theme, Slot::Dark).unwrap();
     assert_eq!(edits.len(), 1);
 
     match &edits[0] {
         Edit::Element { key, name, value } => {
             assert_eq!(key, &crate::jsonc::Key::parse("schemes"));
             assert_eq!(name, "onecoat-dark");
-            assert_eq!(value, &scheme(&theme).unwrap());
+            assert_eq!(value, &scheme(&theme, Slot::Dark).unwrap());
         }
+        other => panic!("expected an element edit, got {other:?}"),
+    }
+}
+
+#[test]
+fn the_slot_decides_the_names_and_the_pair_side() {
+    let theme = theme("nord", crate::themes::BUNDLED[0].1);
+    let palette = &theme.data.palette;
+
+    assert_eq!(
+        scheme(&theme, Slot::Light).unwrap()["name"],
+        "onecoat-light"
+    );
+
+    assert_eq!(
+        colour(&scheme(&theme, Slot::Light).unwrap()["background"]),
+        palette[Base16Entry::B00].to_string()
+    );
+
+    let window = window_theme(&theme, Slot::Light).unwrap();
+    assert_eq!(window["name"], "onecoat-light");
+    assert_eq!(window["window"]["applicationTheme"], "light");
+
+    let edits = settings_edits(&theme, Slot::Light, ProfileScheme::Report).unwrap();
+
+    assert_eq!(
+        edits[0],
+        Edit::Pair {
+            key: crate::jsonc::Key::parse("theme"),
+            side: Slot::Light,
+            name: "onecoat-light".to_owned(),
+            fill: crate::jsonc::Fill::BuiltIn,
+        }
+    );
+
+    assert_eq!(
+        edits[2],
+        Edit::Pair {
+            key: crate::jsonc::Key::parse("profiles.defaults.colorScheme"),
+            side: Slot::Light,
+            name: "onecoat-light".to_owned(),
+            fill: crate::jsonc::Fill::FromString,
+        }
+    );
+
+    match &fragment_edits(&theme, Slot::Light).unwrap()[0] {
+        Edit::Element { name, .. } => assert_eq!(name, "onecoat-light"),
         other => panic!("expected an element edit, got {other:?}"),
     }
 }
@@ -224,10 +271,10 @@ fn the_fragment_edit_upserts_the_scheme_by_name() {
 fn the_repoint_edit_joins_the_settings_edits_only_under_all() {
     let theme = theme("nord", crate::themes::BUNDLED[0].1);
 
-    let reported = settings_edits(&theme, ProfileScheme::Report).unwrap();
+    let reported = settings_edits(&theme, Slot::Dark, ProfileScheme::Report).unwrap();
     assert_eq!(reported.len(), 3);
 
-    let all = settings_edits(&theme, ProfileScheme::All).unwrap();
+    let all = settings_edits(&theme, Slot::Dark, ProfileScheme::All).unwrap();
     assert_eq!(all.len(), 4);
 
     assert_eq!(

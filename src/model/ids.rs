@@ -72,7 +72,7 @@ impl fmt::Display for IdProblem {
 
 impl std::error::Error for IdProblem {}
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, clap::ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum Slot {
     Dark,
@@ -120,15 +120,23 @@ pub enum Target {
 
 impl Target {
     pub const ALL: [Self; 3] = [Self::Wt, Self::Herdr, Self::Omp];
+
+    pub fn from_name(raw: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|target| target.name() == raw)
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Wt => "wt",
+            Self::Herdr => "herdr",
+            Self::Omp => "omp",
+        }
+    }
 }
 
 impl fmt::Display for Target {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Wt => f.write_str("wt"),
-            Self::Herdr => f.write_str("herdr"),
-            Self::Omp => f.write_str("omp"),
-        }
+        f.write_str(self.name())
     }
 }
 
