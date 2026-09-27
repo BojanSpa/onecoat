@@ -21,7 +21,7 @@ Each requirement ID appears once, on the slice that completes it. An earlier sli
 | Done | VS | Slice | Deliverable | Closes |
 | --- | --- | --- | --- | --- |
 | [x] | VS5 | `omp-theme-files` | Resolves the agent directory, maps every token, writes the applied slot's stable theme file, and pins its key under `theme` | R-7, R-21, N-7 |
-| [ ] | VS6 | `omp-live-reload` | Rewrites a theme file only when its bytes change, and proves a running session repaints without a restart | R-22, R-24 |
+| [x] | VS6 | `omp-theme-rewrite` | Rewrites a theme file only when its bytes change, and proves where omp reads it: a running session keeps its colours, the next one renders the rewrite | R-22, R-24 |
 
 ## M2: Herdr target
 
