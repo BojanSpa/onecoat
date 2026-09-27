@@ -31,7 +31,7 @@ Out of scope: remote/SSH Herdr clients; Windows Terminal window themes delivered
 
 ## Application
 
-- R-8 `onecoat use <id>` assigns the theme to its declared slot, then applies the current slot assignment to every enabled target. `--slot` overrides the assignment.
+- R-8 `onecoat use <id>` assigns the theme to its declared slot, then applies the current slot assignment to every enabled target. `--slot` overrides the assignment. Verified by: CLI test reading the state back after a plain and a `--slot` apply.
 - R-9 Applying is idempotent: a second identical apply leaves every file byte-identical and does not rewrite unchanged files.
 - R-10 Each file is written atomically through a temporary file plus replace; a failure leaves the previous content intact.
 - R-11 Before replacing a file, onecoat preserves the previous content as `<file>.onecoat.bak`.
@@ -51,7 +51,7 @@ Out of scope: remote/SSH Herdr clients; Windows Terminal window themes delivered
 
 ## Inspection
 
-- R-25 `current` prints the assigned theme per slot and the targets last applied, from onecoat's state.
+- R-25 `current` prints the assigned theme per slot and the targets last applied, from onecoat's state. Verified by: CLI test over a missing, a recorded, and a malformed state.
 - R-26 `verify` re-derives the expected artifacts from the canonical themes and compares them against the current files; drift is reported per target with the offending keys.
 - R-27 Drift is semantic: a reformatted file with the same values is not drift; a hand-edited color is.
 - R-28 `verify` also checks cross-target coherence — the same role must carry the same color in all three targets.

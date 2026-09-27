@@ -57,4 +57,12 @@ Closes R-8, R-25.<br>
 
 ## As implemented
 
-Everything above landed as written.<br>These are the points where the plan was adjusted while implementing it.<br>
+The plan landed as written except for the points below.<br>
+`current` reports the targets the state holds, so a run before any apply prints `none` and `-`.<br>
+The plan's step 3 read `light  nord` and called the targets unapplied.<br>The `--slot light` apply had written `wt`.<br>
+`--dry-run` prints `would assign <slot> = <id>` above the file lines, as the assumptions asked.<br>
+That line comes from the preview result, so a plan that cannot resolve prints nothing at all.<br>
+`use` reads and validates the state before it writes a target file, so a malformed state fails first.<br>
+The state write stays last, and it is skipped when the text is unchanged.<br>
+The state has no backup; it is disposable, and the writer re-reads and parses it after the write.<br>
+`Target` gained a `from_name` beside `ALL`, and `Slot` is a `ValueEnum` for `--slot`.<br>
