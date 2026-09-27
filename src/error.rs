@@ -35,6 +35,21 @@ pub enum Error {
     )]
     FileWriteFailed { path: PathBuf, source: io::Error },
 
+    #[error("`{path}` is not valid TOML: {source}; fix the syntax at the reported line and column")]
+    TomlUnparseable {
+        path: PathBuf,
+        source: Box<toml_edit::TomlError>,
+    },
+
+    #[error("`{path}` would fail `herdr config check`: {issues}; the file was left as it was")]
+    HerdrCheckFailed { path: PathBuf, issues: String },
+
+    #[error("cannot run `{program}`: {source}; check that it is installed and runs")]
+    CommandFailed {
+        program: &'static str,
+        source: io::Error,
+    },
+
     #[error(
         "`{path}` does not exist; onecoat only edits this file and never invents one, so run the program that owns it once and retry"
     )]

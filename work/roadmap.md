@@ -27,7 +27,7 @@ Each requirement ID appears once, on the slice that completes it. An earlier sli
 
 | Done | VS | Slice | Deliverable | Closes |
 | --- | --- | --- | --- | --- |
-| [ ] | VS7 | `herdr-theme` | Writes `[theme]` and its appearance layers with `toml_edit`, gates the result on `herdr config check`, and reloads through `herdr server reload-config` when a server socket exists | R-18, R-19, R-20 |
+| [x] | VS7 | `herdr-theme` | Writes `[theme]` and its appearance layers with `toml_edit`, gates the result on `herdr config check`, and reloads through `herdr server reload-config` when a server socket exists | R-18, R-19, R-20 |
 
 ## M3: Inspection and appearance
 

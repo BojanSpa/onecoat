@@ -10,6 +10,7 @@ use crate::jsonc::{Edit, Key};
 use crate::model::ids::{Slot, Target};
 use crate::plan::{Absent, Content, Plan, PlannedWrite};
 use crate::render::omp;
+use crate::targets::Paths;
 
 fn one_write_plan(path: PathBuf, absent: Absent) -> Plan {
     Plan {
@@ -56,6 +57,19 @@ fn sandbox() -> (TempDir, PathBuf) {
     (dir, target)
 }
 
+fn paths() -> Paths {
+    Paths {
+        wt_fragment: PathBuf::from("wt/schemes.json"),
+        wt_settings: PathBuf::from("wt/settings.json"),
+        herdr_config: PathBuf::from("herdr/config.toml"),
+        herdr_socket: PathBuf::from("herdr/herdr.sock"),
+        omp_themes: PathBuf::from("omp/themes"),
+        omp_config: PathBuf::from("omp/config.yml"),
+        user_themes: PathBuf::from("themes"),
+        state: PathBuf::from("state.json"),
+    }
+}
+
 #[test]
 fn the_previous_content_survives_a_failed_backup() {
     let (dir, target) = sandbox();
@@ -63,7 +77,7 @@ fn the_previous_content_survives_a_failed_backup() {
     let backup = dir.path().join("settings.json.onecoat.bak");
     fs::create_dir(&backup).unwrap();
 
-    let error = execute(&one_write_plan(target.clone(), Absent::Fail)).unwrap_err();
+    let error = execute(&paths(), &one_write_plan(target.clone(), Absent::Fail)).unwrap_err();
 
     assert!(
         matches!(&error, Error::FileWriteFailed { path, .. } if *path == backup),
@@ -79,7 +93,7 @@ fn a_document_that_already_holds_the_value_is_left_alone() {
     let (dir, target) = sandbox();
     fs::write(&target, "{\n  \"theme\": \"dark\"\n}\n").unwrap();
 
-    let reports = execute(&one_write_plan(target.clone(), Absent::Fail)).unwrap();
+    let reports = execute(&paths(), &one_write_plan(target.clone(), Absent::Fail)).unwrap();
     assert_eq!(reports.len(), 1);
     assert_eq!(reports[0].outcome, WriteOutcome::Unchanged);
     assert!(!dir.path().join("settings.json.onecoat.bak").exists());
@@ -96,7 +110,7 @@ fn a_changed_file_is_backed_up_before_it_is_replaced() {
     let (dir, target) = sandbox();
     fs::write(&target, "{\n  \"theme\": \"light\"\n}\n").unwrap();
 
-    let reports = execute(&one_write_plan(target.clone(), Absent::Fail)).unwrap();
+    let reports = execute(&paths(), &one_write_plan(target.clone(), Absent::Fail)).unwrap();
     assert_eq!(reports[0].outcome, WriteOutcome::Written);
 
     assert_eq!(
@@ -114,7 +128,7 @@ fn a_changed_file_is_backed_up_before_it_is_replaced() {
 fn a_missing_file_is_created_without_a_backup() {
     let (dir, target) = sandbox();
 
-    let reports = execute(&one_write_plan(target.clone(), Absent::Create)).unwrap();
+    let reports = execute(&paths(), &one_write_plan(target.clone(), Absent::Create)).unwrap();
     assert_eq!(reports[0].outcome, WriteOutcome::Written);
 
     assert_eq!(
@@ -129,7 +143,7 @@ fn a_missing_file_is_created_without_a_backup() {
 fn a_missing_file_that_must_not_be_created_fails_the_apply() {
     let (dir, target) = sandbox();
 
-    let error = execute(&one_write_plan(target.clone(), Absent::Fail)).unwrap_err();
+    let error = execute(&paths(), &one_write_plan(target.clone(), Absent::Fail)).unwrap_err();
 
     assert!(
         matches!(&error, Error::MissingFile { path } if *path == target),
@@ -246,7 +260,7 @@ fn the_file_keeps_its_line_endings_and_trailing_state() {
     let (_dir, target) = sandbox();
     fs::write(&target, "{\r\n    \"a\": 1\r\n}").unwrap();
 
-    execute(&one_write_plan(target.clone(), Absent::Fail)).unwrap();
+    execute(&paths(), &one_write_plan(target.clone(), Absent::Fail)).unwrap();
 
     assert_eq!(
         fs::read_to_string(&target).unwrap(),
@@ -259,7 +273,7 @@ fn a_file_that_is_not_utf8_is_reported() {
     let (_dir, target) = sandbox();
     fs::write(&target, [0xff, 0xfe, 0x00]).unwrap();
 
-    let error = execute(&one_write_plan(target.clone(), Absent::Fail)).unwrap_err();
+    let error = execute(&paths(), &one_write_plan(target.clone(), Absent::Fail)).unwrap_err();
 
     assert!(
         matches!(&error, Error::FileUnreadable { path, .. } if *path == target),
@@ -285,7 +299,7 @@ fn a_generated_file_reports_no_keys_and_is_written_whole() {
     let lines = preview(&generated_plan(target.clone())).unwrap();
     assert_eq!(lines, [format!("would write {}", target.display())]);
 
-    let reports = execute(&generated_plan(target.clone())).unwrap();
+    let reports = execute(&paths(), &generated_plan(target.clone())).unwrap();
     assert_eq!(reports[0].target, Target::Omp);
     assert_eq!(reports[0].outcome, WriteOutcome::Written);
 
@@ -296,7 +310,7 @@ fn a_generated_file_reports_no_keys_and_is_written_whole() {
 
     assert!(!dir.path().join("settings.json.onecoat.bak").exists());
 
-    let again = execute(&generated_plan(target.clone())).unwrap();
+    let again = execute(&paths(), &generated_plan(target.clone())).unwrap();
     assert_eq!(again[0].outcome, WriteOutcome::Unchanged);
 }
 
@@ -313,7 +327,7 @@ fn a_yaml_pin_is_spliced_reported_and_backed_up() {
         "model: x\ntheme:\n  dark: onecoat-dark\n"
     );
 
-    let reports = execute(&yaml_plan(target.clone())).unwrap();
+    let reports = execute(&paths(), &yaml_plan(target.clone())).unwrap();
     assert_eq!(reports[0].outcome, WriteOutcome::Written);
 
     assert_eq!(
@@ -327,7 +341,7 @@ fn a_yaml_pin_is_spliced_reported_and_backed_up() {
     );
 
     assert_eq!(
-        execute(&yaml_plan(target.clone())).unwrap()[0].outcome,
+        execute(&paths(), &yaml_plan(target.clone())).unwrap()[0].outcome,
         WriteOutcome::Unchanged
     );
 }

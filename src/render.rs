@@ -1,3 +1,4 @@
+pub mod herdr;
 pub mod omp;
 pub mod wt;
 

@@ -1,16 +1,19 @@
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::Error;
 use crate::model::ids::Slot;
 use crate::render::omp;
 
 const AGENT_DIR_VAR: &str = "PI_CODING_AGENT_DIR";
+const HERDR_CONFIG_VAR: &str = "HERDR_CONFIG_PATH";
 const HOME_VAR: &str = "USERPROFILE";
 
 pub struct Paths {
     pub wt_fragment: PathBuf,
     pub wt_settings: PathBuf,
+    pub herdr_config: PathBuf,
+    pub herdr_socket: PathBuf,
     pub omp_themes: PathBuf,
     pub omp_config: PathBuf,
     pub user_themes: PathBuf,
@@ -26,7 +29,7 @@ impl Paths {
         let roaming = env::var_os("APPDATA").ok_or(Error::EnvMissing { var: "APPDATA" })?;
         let agent = agent_dir()?;
         let local = PathBuf::from(local);
-        let roaming = PathBuf::from(roaming).join("onecoat");
+        let roaming = PathBuf::from(roaming);
 
         Ok(Self {
             wt_fragment: local
@@ -40,16 +43,24 @@ impl Paths {
                 .join("Microsoft.WindowsTerminal_8wekyb3d8bbwe")
                 .join("LocalState")
                 .join("settings.json"),
+            herdr_config: herdr_config(&roaming),
+            herdr_socket: roaming.join("herdr").join("herdr.sock"),
             omp_themes: agent.join("themes"),
             omp_config: agent.join("config.yml"),
-            user_themes: roaming.join("themes"),
-            state: roaming.join("state.json"),
+            user_themes: roaming.join("onecoat").join("themes"),
+            state: roaming.join("onecoat").join("state.json"),
         })
     }
 
     pub fn omp_theme(&self, slot: Slot) -> PathBuf {
         self.omp_themes.join(omp::file_name(slot))
     }
+}
+
+fn herdr_config(roaming: &Path) -> PathBuf {
+    env::var_os(HERDR_CONFIG_VAR)
+        .filter(|path| !path.is_empty())
+        .map_or_else(|| roaming.join("herdr").join("config.toml"), PathBuf::from)
 }
 
 fn agent_dir() -> Result<PathBuf, Error> {

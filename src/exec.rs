@@ -1,16 +1,22 @@
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use crate::Error;
 use crate::jsonc::{self, Key};
 use crate::model::ids::Target;
 use crate::plan::{Absent, Content, PinReport, Plan, PlannedWrite};
-use crate::render::omp;
+use crate::render::{herdr, omp};
 use crate::state::{Problem, State};
+use crate::targets::Paths;
 
 const TEMP_SUFFIX: &str = ".onecoat.tmp";
 const BACKUP_SUFFIX: &str = ".onecoat.bak";
+const HERDR_PROGRAM: &str = "herdr";
+const HERDR_NO_BINARY: &str = "herdr is not on PATH, so the config check was skipped";
+const HERDR_INTERACTIVE: &str = "no herdr server socket, so herdr picks this up at its next launch";
+const HERDR_RELOADED: &str = "reloaded herdr's config";
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum WriteOutcome {
@@ -62,9 +68,9 @@ pub fn preview(plan: &Plan) -> Result<Vec<String>, Error> {
     Ok(lines)
 }
 
-pub fn execute(plan: &Plan) -> Result<Vec<WriteReport>, Error> {
+pub fn execute(paths: &Paths, plan: &Plan) -> Result<Vec<WriteReport>, Error> {
     let mut reports = Vec::new();
-    for write in resolve(plan)? {
+    for mut write in resolve(plan)? {
         if write.outcome == WriteOutcome::Unchanged {
             reports.push(WriteReport {
                 target: write.target,
@@ -76,18 +82,121 @@ pub fn execute(plan: &Plan) -> Result<Vec<WriteReport>, Error> {
             continue;
         }
 
+        let mut pin_notes = std::mem::take(&mut write.pin_notes);
+        if write.target == Target::Herdr
+            && let Some(note) = check_herdr(&write.path, &write.bytes)?
+        {
+            pin_notes.push(note);
+        }
+
         replace(&write)?;
         verify_content(&write)?;
+
+        if write.target == Target::Herdr
+            && let Some(note) = reload_herdr(&paths.herdr_socket)
+        {
+            pin_notes.push(note);
+        }
 
         reports.push(WriteReport {
             target: write.target,
             path: write.path,
             outcome: WriteOutcome::Written,
-            pin_notes: write.pin_notes,
+            pin_notes,
         });
     }
 
     Ok(reports)
+}
+
+fn check_herdr(path: &Path, bytes: &[u8]) -> Result<Option<String>, Error> {
+    let Some(live) = herdr_issues(path)? else {
+        return Ok(Some(HERDR_NO_BINARY.to_owned()));
+    };
+
+    let candidate = append_to_file_name(path, TEMP_SUFFIX);
+    if let Err(source) = create_synced(&candidate, bytes) {
+        let _ = fs::remove_file(&candidate);
+
+        return Err(Error::FileWriteFailed {
+            path: candidate,
+            source,
+        });
+    }
+
+    let checked = herdr_issues(&candidate)?;
+    let _ = fs::remove_file(&candidate);
+
+    let added: Vec<String> = checked
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|issue| !live.contains(issue))
+        .collect();
+
+    match added.is_empty() {
+        true => Ok(None),
+        false => Err(Error::HerdrCheckFailed {
+            path: path.to_path_buf(),
+            issues: added.join("; "),
+        }),
+    }
+}
+
+fn herdr_issues(config: &Path) -> Result<Option<Vec<String>>, Error> {
+    let output = match Command::new(HERDR_PROGRAM)
+        .args(["config", "check"])
+        .env("HERDR_CONFIG_PATH", config)
+        .output()
+    {
+        Ok(output) => output,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(source) => {
+            return Err(Error::CommandFailed {
+                program: HERDR_PROGRAM,
+                source,
+            });
+        }
+    };
+
+    let mut issues: Vec<String> = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .chain(String::from_utf8_lossy(&output.stderr).lines())
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with("config:"))
+        .map(str::to_owned)
+        .collect();
+
+    issues.sort();
+    issues.dedup();
+
+    Ok(Some(issues))
+}
+
+fn reload_herdr(socket: &Path) -> Option<String> {
+    if !socket.exists() {
+        return Some(HERDR_INTERACTIVE.to_owned());
+    }
+
+    match Command::new(HERDR_PROGRAM)
+        .args(["server", "reload-config"])
+        .output()
+    {
+        Ok(output) if output.status.success() => Some(HERDR_RELOADED.to_owned()),
+        Ok(output) => Some(format!(
+            "herdr did not reload: {}",
+            first_line(&output.stderr)
+        )),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Some(HERDR_NO_BINARY.to_owned()),
+        Err(source) => Some(format!("cannot run `{HERDR_PROGRAM}`: {source}")),
+    }
+}
+
+fn first_line(text: &[u8]) -> String {
+    let text = String::from_utf8_lossy(text);
+
+    text.lines()
+        .find(|line| !line.trim().is_empty())
+        .map_or_else(|| "no message".to_owned(), |line| line.trim().to_owned())
 }
 
 pub fn verify_written(path: &Path, backup: Option<&Path>) -> Result<(), Error> {
@@ -104,6 +213,7 @@ fn verify_content(write: &ResolvedWrite) -> Result<(), Error> {
 
     let problem = match &write.content {
         Content::Jsonc(_) | Content::Generated(_) => jsonc::verify(path, &source).err(),
+        Content::Toml(_) => herdr::splice(path, &source, &[]).err(),
         Content::Yaml(edits) => omp::splice_config(path, &source, edits).err(),
     };
 
@@ -195,6 +305,10 @@ fn resolve_one(planned: &PlannedWrite) -> Result<ResolvedWrite, Error> {
     let (bytes, changed) = match &planned.content {
         Content::Jsonc(edits) => {
             let spliced = jsonc::splice(path, text, edits)?;
+            (spliced.text.into_bytes(), spliced.changed)
+        }
+        Content::Toml(edits) => {
+            let spliced = herdr::splice(path, text, edits)?;
             (spliced.text.into_bytes(), spliced.changed)
         }
         Content::Yaml(edits) => {
