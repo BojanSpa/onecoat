@@ -1618,6 +1618,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "tidy"
+version = "0.1.0"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
 name = "tinystr"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"

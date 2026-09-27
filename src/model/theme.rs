@@ -9,12 +9,10 @@ use crate::model::color::HexColor;
 use crate::model::ids::{Appearance, IdProblem, Origin, ThemeId};
 use crate::model::palette::{AnsiSet, Palette};
 
-#[allow(missing_docs)]
 pub trait Phase {
     type Data;
 }
 
-#[allow(missing_docs)]
 #[derive(Debug)]
 pub struct Parsed;
 
@@ -22,7 +20,6 @@ impl Phase for Parsed {
     type Data = RawTheme;
 }
 
-#[allow(missing_docs)]
 #[derive(Debug)]
 pub struct Validated;
 
@@ -30,7 +27,6 @@ impl Phase for Validated {
     type Data = ThemeData;
 }
 
-#[allow(missing_docs)]
 #[derive(Debug)]
 pub struct Theme<P: Phase> {
     pub id: ThemeId,
@@ -42,7 +38,6 @@ pub struct Theme<P: Phase> {
     pub data: P::Data,
 }
 
-#[allow(missing_docs)]
 #[derive(Debug)]
 pub struct RawTheme {
     pub palette: BTreeMap<String, Value>,
@@ -50,7 +45,6 @@ pub struct RawTheme {
     pub targets: BTreeMap<String, BTreeMap<String, Value>>,
 }
 
-#[allow(missing_docs)]
 #[derive(Debug)]
 pub struct ThemeData {
     pub palette: Palette,
@@ -60,7 +54,6 @@ pub struct ThemeData {
     pub herdr: BTreeMap<String, OverrideValue>,
 }
 
-#[allow(missing_docs)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct WtOverrides {
     pub background: Option<HexColor>,
@@ -69,7 +62,6 @@ pub struct WtOverrides {
     pub selection_background: Option<HexColor>,
 }
 
-#[allow(missing_docs)]
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum OverrideValue {
     Color(HexColor),
@@ -88,7 +80,6 @@ const ROOT_KEYS: [&str; 7] = [
 ];
 
 impl Theme<Parsed> {
-    #[allow(missing_docs)]
     pub fn parse(path: PathBuf, source: &str, origin: Origin) -> Result<Self, Error> {
         let table = source
             .parse::<toml::Table>()

@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2024"
 description = "Apply one canonical theme to Windows Terminal, Herdr, and the omp harness"
 
+[workspace]
+members = ["tools/tidy"]
+
 [dependencies]
 clap = { version = "4.6", features = ["derive"] }
 jsonc-parser = { version = "0.33", features = ["cst", "serde_json"] }

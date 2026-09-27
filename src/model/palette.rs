@@ -2,7 +2,6 @@ use std::ops::{Index, IndexMut};
 
 use crate::model::color::HexColor;
 
-#[allow(missing_docs)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Base16Entry {
     B00,
@@ -23,7 +22,6 @@ pub enum Base16Entry {
     B0F,
 }
 
-#[allow(missing_docs)]
 impl Base16Entry {
     pub const ALL: [Self; 16] = [
         Self::B00,
@@ -76,7 +74,6 @@ impl Base16Entry {
     }
 }
 
-#[allow(missing_docs)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Palette([HexColor; 16]);
 
@@ -94,7 +91,6 @@ impl Index<Base16Entry> for Palette {
     }
 }
 
-#[allow(missing_docs)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum AnsiSlot {
     Black,
@@ -115,7 +111,6 @@ pub enum AnsiSlot {
     BrightWhite,
 }
 
-#[allow(missing_docs)]
 impl AnsiSlot {
     pub const ALL: [Self; 16] = [
         Self::Black,
@@ -166,7 +161,6 @@ impl AnsiSlot {
     }
 }
 
-#[allow(missing_docs)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct AnsiSet([HexColor; 16]);
 

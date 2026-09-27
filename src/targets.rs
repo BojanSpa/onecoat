@@ -3,7 +3,6 @@ use std::path::PathBuf;
 
 use crate::Error;
 
-#[allow(missing_docs)]
 pub struct Paths {
     pub wt_fragment: PathBuf,
     pub wt_settings: PathBuf,
@@ -11,7 +10,6 @@ pub struct Paths {
 }
 
 impl Paths {
-    #[allow(missing_docs)]
     pub fn resolve() -> Result<Self, Error> {
         let local = env::var_os("LOCALAPPDATA").ok_or(Error::EnvMissing {
             var: "LOCALAPPDATA",

@@ -1,0 +1,9 @@
+[package]
+name = "tidy"
+version = "0.1.0"
+edition = "2024"
+description = "Repo conventions the compiler cannot check"
+publish = false
+
+[dependencies]
+thiserror = "2.0"

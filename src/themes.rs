@@ -9,13 +9,11 @@ use crate::model::theme::{Theme, Validated};
 
 pub(crate) const BUNDLED: &[(&str, &str)] = &[("nord", include_str!("../themes/nord.toml"))];
 
-#[allow(missing_docs)]
 #[derive(Debug)]
 pub struct ThemeSet {
     themes: BTreeMap<ThemeId, Theme<Validated>>,
 }
 
-#[allow(missing_docs)]
 impl ThemeSet {
     pub fn load(user_themes_dir: &Path) -> Result<Self, Error> {
         let mut themes = BTreeMap::new();
