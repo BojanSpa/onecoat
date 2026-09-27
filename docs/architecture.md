@@ -34,8 +34,8 @@ Verified on the development machine: Windows Terminal 1.24.11911, Herdr 0.9.1-pr
 | wt | `%LOCALAPPDATA%\Microsoft\Windows Terminal\Fragments\onecoat\schemes.json` | `schemes[]`, upserted by `name`, one element per slot | Windows Terminal reloads when its settings file changes, re-reading fragments | vendored `profiles.schema.json` |
 | wt | `%LOCALAPPDATA%\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json` | root `theme` (light/dark pair), root `themes[]`, `profiles.defaults.colorScheme` (pair), per-profile `colorScheme` pins that already exist (repointed only under `--profile-color-scheme all`) | same | same |
 | herdr | `%APPDATA%\herdr\config.toml` | `[theme]` `name`, `auto_switch`, `dark_name`, `light_name`; `[theme.custom]` and its `.dark`/`.light` layers | `herdr server reload-config` | `herdr config check` |
-| omp | `<agent dir>/themes/onecoat-<slot>.json`, written for the applied slot | every required token | file watcher on the active theme file | vendored token list |
-| omp | `<agent dir>/config.yml` | the applied slot's key under `theme` | next launch (the keys are set once) | `omp config get theme.dark` |
+| omp | `<agent dir>/themes/onecoat-<slot>.json`, written for the applied slot | every required token | file watcher on the themes directory, filtered to the active theme file | vendored token list |
+| omp | `<agent dir>/config.yml` | the applied slot's key under `theme` | settings watcher on `config.yml` | `omp config get theme.dark` |
 
 Constraints that shape the writers:<br>
 
@@ -44,6 +44,7 @@ Constraints that shape the writers:<br>
 - Herdr resolves themes from the client's local config, so the file above is correct for local use and wrong for a remote client; remote is out of scope.
 - omp built-in themes take precedence over same-named custom files, hence the `onecoat-` prefix.
 - omp's agent directory is `PI_CODING_AGENT_DIR` when that variable is set, and `%USERPROFILE%\.omp\agent` otherwise.
+- omp's theme watcher drops events whose filename is not the active theme file, so the `.onecoat.tmp` file onecoat creates and deletes is invisible to it.
 
 ## Layout
 

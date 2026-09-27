@@ -45,9 +45,9 @@ Out of scope: remote/SSH Herdr clients; Windows Terminal window themes delivered
 - R-19 A generated herdr config must pass `herdr config check`; onecoat runs it after writing when the binary is available and restores the backup on failure.
 - R-20 Herdr reload: run `herdr server reload-config` when a server socket exists; never restart, signal, or kill a client, and say so when only an interactive reload can pick the change up.
 - R-21 omp artifact: the applied slot's theme file carries every token the harness requires, and that slot's key under `theme` in `config.yml` is pinned to `onecoat-<slot>`. Verified by: a token-completeness test over the vendored list and a fixture config splice.
-- R-22 A running omp session picks up changed colors from a rewrite of the active theme file alone — no restart and no settings write while the pinned names are unchanged.
+- R-22 A running omp session picks up changed colors from a rewrite of the active theme file alone — no restart and no settings write while the pinned names are unchanged. Verified by: a CLI test that rewrites the theme under an unchanged pin, and the live session smoke.
 - R-23 `--targets` limits an apply to the named targets and leaves every other target's files untouched.
-- R-24 Theme files whose rendering is unchanged are not rewritten, so omp's watcher is not woken by no-op applies.
+- R-24 Theme files whose rendering is unchanged are not rewritten, so omp's watcher is not woken by no-op applies. Verified by: a second apply leaves every file stamp untouched.
 
 ## Inspection
 

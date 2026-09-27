@@ -23,7 +23,7 @@ Working today:
 
 - `onecoat list` prints the available themes and where each one comes from. `--json` prints the same data for scripts.
 - `onecoat use <id>` writes onecoat's Windows Terminal fragment (a JSON file in Windows Terminal's Fragments folder), then sets the owned keys in `settings.json`: the root `theme` pair, the window entries in `themes`, and the `profiles.defaults.colorScheme` pair. Profiles that pin their own scheme are reported, and `--profile-color-scheme all` repoints them.
-- The same command writes the applied slot's omp theme file under the omp agent directory (`PI_CODING_AGENT_DIR`, or `%USERPROFILE%\.omp\agent`) and pins that file's name in the agent directory's `config.yml`.
+- The same command writes the applied slot's omp theme file under the omp agent directory (`PI_CODING_AGENT_DIR`, or `%USERPROFILE%\.omp\agent`) and pins that file's name in the agent directory's `config.yml`. A running session repaints from the rewritten file without a restart.
 - `onecoat current` prints the theme assigned to each slot and the targets the last apply wrote.
 - `--dry-run` prints the planned writes and the keys they change. `--targets` limits an apply to the named targets.
 - One theme ships in the binary, `nord`. Your themes go in `%APPDATA%\onecoat\themes\*.toml` and can shadow a bundled theme with the same id.
