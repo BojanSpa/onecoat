@@ -200,7 +200,11 @@ The plan is ordered — the fragment before `settings.json`, so the scheme a pai
 Unchanged writes skip the write entirely, which keeps mtimes and watchers quiet.<br>
 A key is reported only when its value differs from the one the file held, so a second apply reports none.<br>
 
-State is written last: `%APPDATA%\onecoat\state.json` holds the slot assignment, the pinned target names, and the expected value for every owned key.<br>
+State is written last: `%APPDATA%\onecoat\state.json` holds the slot assignment and the targets the last apply wrote.<br>
+`use` records the slot it applied and leaves the other slot as it was, so a `--slot light` apply does not unassign `dark`.<br>
+`current` prints one row per slot plus the applied targets, and `--json` prints the state document itself.<br>
+A missing file reads as two unassigned slots; a malformed one fails the command before any target file is written.<br>
+The pinned target names and the expected value for every owned key join the document in VS9.<br>
 It is disposable — deleting it turns the next `verify` into a full re-derivation instead of a comparison.<br>
 
 ## Drift and coherence

@@ -2,6 +2,7 @@ use std::{io, path::PathBuf};
 
 use crate::jsonc::Key;
 use crate::model::{Appearance, Base16Entry, HexColor, ThemeId};
+use crate::state::Problem;
 
 pub(crate) fn accepted_keys(list: &[&str]) -> String {
     list.join(", ")
@@ -159,6 +160,11 @@ pub enum Error {
         other: PathBuf,
         id: ThemeId,
     },
+
+    #[error(
+        "`{path}` is not valid state: {problem}; delete the file to reset the state, which is disposable"
+    )]
+    StateInvalid { path: PathBuf, problem: Problem },
 
     #[error("cannot encode JSON output: {source}; this is a bug in onecoat, please report it")]
     JsonEncodeFailed { source: serde_json::Error },

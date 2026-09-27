@@ -7,6 +7,7 @@ pub struct Paths {
     pub wt_fragment: PathBuf,
     pub wt_settings: PathBuf,
     pub user_themes: PathBuf,
+    pub state: PathBuf,
 }
 
 impl Paths {
@@ -17,6 +18,7 @@ impl Paths {
 
         let roaming = env::var_os("APPDATA").ok_or(Error::EnvMissing { var: "APPDATA" })?;
         let local = PathBuf::from(local);
+        let roaming = PathBuf::from(roaming).join("onecoat");
 
         Ok(Self {
             wt_fragment: local
@@ -30,7 +32,8 @@ impl Paths {
                 .join("Microsoft.WindowsTerminal_8wekyb3d8bbwe")
                 .join("LocalState")
                 .join("settings.json"),
-            user_themes: PathBuf::from(roaming).join("onecoat").join("themes"),
+            user_themes: roaming.join("themes"),
+            state: roaming.join("state.json"),
         })
     }
 }

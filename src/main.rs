@@ -9,6 +9,7 @@ use onecoat::model::ids::{Appearance, Origin, Slot, Target, ThemeId};
 use onecoat::model::theme::{Theme, Validated};
 use onecoat::plan::Plan;
 use onecoat::render::wt::ProfileScheme;
+use onecoat::state::State;
 use onecoat::targets::Paths;
 use onecoat::themes::ThemeSet;
 
@@ -30,6 +31,8 @@ enum Command {
     List(ReadArgs),
     #[command(about = "Apply a theme to the current slot")]
     Use(UseArgs),
+    #[command(about = "Print the assigned theme per slot and the targets last applied")]
+    Current(ReadArgs),
 }
 
 #[derive(Args)]
@@ -42,6 +45,12 @@ struct ReadArgs {
 struct UseArgs {
     #[arg(help = "Theme id, as printed by `onecoat list`")]
     id: ThemeId,
+    #[arg(
+        long,
+        value_enum,
+        help = "Assign the theme to this slot instead of its declared appearance"
+    )]
+    slot: Option<Slot>,
     #[arg(
         long,
         help = "Print the planned writes and the keys they change, without writing"
@@ -78,6 +87,7 @@ fn run(cli: Cli) -> Result<(), Error> {
     match cli.command {
         Command::List(args) => list(&paths, args),
         Command::Use(args) => apply(&paths, &args),
+        Command::Current(args) => current(&paths, args),
     }
 }
 
@@ -100,15 +110,22 @@ fn apply(paths: &Paths, args: &UseArgs) -> Result<(), Error> {
             id: args.id.clone(),
         })?;
 
+    let slot = args.slot.unwrap_or_else(|| Slot::from(theme.appearance));
+
     let targets = if args.targets.is_empty() {
         Target::ALL.to_vec()
     } else {
         args.targets.clone()
     };
 
-    let plan = Plan::wt(paths, theme, args.profile_color_scheme)?.limited_to(&targets);
+    let plan = Plan::wt(paths, theme, slot, args.profile_color_scheme)?.limited_to(&targets);
+    let mut state = exec::read_state(&paths.state)?;
     if args.dry_run {
-        for line in exec::preview(&plan)? {
+        let lines = exec::preview(&plan)?;
+
+        println!("would assign {} = {}", slot.name(), theme.id);
+
+        for line in lines {
             println!("{line}");
         }
     } else {
@@ -124,6 +141,10 @@ fn apply(paths: &Paths, args: &UseArgs) -> Result<(), Error> {
                 println!("{note}");
             }
         }
+
+        state.assign(slot, theme.id.clone());
+        state.record(plan.targets());
+        exec::write_state(&paths.state, &state)?;
     }
 
     if !args.targets.is_empty() {
@@ -136,6 +157,86 @@ fn apply(paths: &Paths, args: &UseArgs) -> Result<(), Error> {
     }
 
     Ok(())
+}
+
+fn current(paths: &Paths, args: ReadArgs) -> Result<(), Error> {
+    let state = exec::read_state(&paths.state)?;
+    if args.json {
+        print!("{}", state.render()?);
+    } else {
+        print_current(&state);
+    }
+
+    Ok(())
+}
+
+struct CurrentRow {
+    slot: &'static str,
+    theme: String,
+    targets: String,
+}
+
+impl CurrentRow {
+    fn of(slot: Slot, state: &State, applied: &str) -> Self {
+        Self {
+            slot: slot.name(),
+            theme: state
+                .assigned(slot)
+                .map_or_else(|| "none".to_owned(), ThemeId::to_string),
+            targets: applied.to_owned(),
+        }
+    }
+
+    fn header() -> Self {
+        Self {
+            slot: "slot",
+            theme: "theme".to_owned(),
+            targets: "targets".to_owned(),
+        }
+    }
+}
+
+fn print_current(state: &State) {
+    let applied = if state.targets().is_empty() {
+        "-".to_owned()
+    } else {
+        state
+            .targets()
+            .iter()
+            .map(Target::to_string)
+            .collect::<Vec<_>>()
+            .join(",")
+    };
+
+    let rows: Vec<CurrentRow> = std::iter::once(CurrentRow::header())
+        .chain(
+            [Slot::Dark, Slot::Light]
+                .into_iter()
+                .map(|slot| CurrentRow::of(slot, state, &applied)),
+        )
+        .collect();
+
+    let widest = |cell: fn(&CurrentRow) -> &str| {
+        rows.iter()
+            .map(cell)
+            .map(|text| text.chars().count())
+            .max()
+            .unwrap_or(0)
+    };
+
+    let (slot_width, theme_width) = (widest(|row| row.slot), widest(|row| &row.theme));
+    for row in &rows {
+        let line = format!(
+            "{:<slot$} {:<theme$} {}",
+            row.slot,
+            row.theme,
+            row.targets,
+            slot = slot_width,
+            theme = theme_width
+        );
+
+        println!("{}", line.trim_end());
+    }
 }
 
 #[derive(Serialize)]

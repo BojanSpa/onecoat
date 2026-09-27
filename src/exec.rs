@@ -6,6 +6,7 @@ use crate::Error;
 use crate::jsonc::{self, Key};
 use crate::model::ids::Target;
 use crate::plan::{Absent, PinReport, Plan, PlannedWrite};
+use crate::state::{Problem, State};
 
 const TEMP_SUFFIX: &str = ".onecoat.tmp";
 const BACKUP_SUFFIX: &str = ".onecoat.bak";
@@ -117,6 +118,34 @@ pub fn verify_written(path: &Path, backup: Option<&Path>) -> Result<(), Error> {
     })
 }
 
+pub fn read_state(path: &Path) -> Result<State, Error> {
+    let Some(bytes) = read(path)? else {
+        return Ok(State::none());
+    };
+
+    let source = std::str::from_utf8(&bytes).map_err(|_| not_utf8(path))?;
+
+    State::parse(source).map_err(|problem| state_error(path, problem))
+}
+
+pub fn write_state(path: &Path, state: &State) -> Result<(), Error> {
+    let text = state.render()?;
+    if read(path)?.as_deref() == Some(text.as_bytes()) {
+        return Ok(());
+    }
+
+    write_bytes(path, text.as_bytes(), None)?;
+
+    read_state(path).map(|_| ())
+}
+
+fn state_error(path: &Path, problem: Problem) -> Error {
+    Error::StateInvalid {
+        path: path.to_path_buf(),
+        problem,
+    }
+}
+
 fn resolve_one(planned: &PlannedWrite) -> Result<ResolvedWrite, Error> {
     let path = planned.path.as_path();
     let existing = read(path)?;
@@ -188,7 +217,10 @@ fn report_pins(path: &Path, source: &str, report: &PinReport) -> Result<Vec<Stri
 }
 
 fn replace(write: &ResolvedWrite) -> Result<(), Error> {
-    let path = write.path.as_path();
+    write_bytes(&write.path, &write.bytes, write.backup.as_deref())
+}
+
+fn write_bytes(path: &Path, bytes: &[u8], backup: Option<&Path>) -> Result<(), Error> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|source| Error::DirCreateFailed {
             path: parent.to_path_buf(),
@@ -197,18 +229,18 @@ fn replace(write: &ResolvedWrite) -> Result<(), Error> {
     }
 
     let temp = append_to_file_name(path, TEMP_SUFFIX);
-    if let Err(source) = create_synced(&temp, &write.bytes) {
+    if let Err(source) = create_synced(&temp, bytes) {
         let _ = fs::remove_file(&temp);
         return Err(Error::FileWriteFailed { path: temp, source });
     }
 
-    if let Some(backup) = &write.backup
+    if let Some(backup) = backup
         && let Err(source) = fs::copy(path, backup)
     {
         let _ = fs::remove_file(&temp);
 
         return Err(Error::FileWriteFailed {
-            path: backup.clone(),
+            path: backup.to_path_buf(),
             source,
         });
     }
@@ -217,7 +249,7 @@ fn replace(write: &ResolvedWrite) -> Result<(), Error> {
         let _ = fs::remove_file(&temp);
 
         return Err(Error::FileWriteFailed {
-            path: write.path.clone(),
+            path: path.to_path_buf(),
             source,
         });
     }

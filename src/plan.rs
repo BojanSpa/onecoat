@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use crate::Error;
 use crate::jsonc::{Edit, Key};
-use crate::model::ids::Target;
+use crate::model::ids::{Slot, Target};
 use crate::model::theme::{Theme, Validated};
 use crate::render::wt::{self, ProfileScheme};
 use crate::targets::Paths;
@@ -38,6 +38,7 @@ impl Plan {
     pub fn wt(
         paths: &Paths,
         theme: &Theme<Validated>,
+        slot: Slot,
         profile_scheme: ProfileScheme,
     ) -> Result<Self, Error> {
         let key = Key::parse(wt::PROFILES_KEY);
@@ -53,14 +54,14 @@ impl Plan {
                 PlannedWrite {
                     target: Target::Wt,
                     path: paths.wt_fragment.clone(),
-                    edits: wt::fragment_edits(theme)?,
+                    edits: wt::fragment_edits(theme, slot)?,
                     absent: Absent::Create,
                     pins: None,
                 },
                 PlannedWrite {
                     target: Target::Wt,
                     path: paths.wt_settings.clone(),
-                    edits: wt::settings_edits(theme, profile_scheme)?,
+                    edits: wt::settings_edits(theme, slot, profile_scheme)?,
                     absent: Absent::Fail,
                     pins,
                 },

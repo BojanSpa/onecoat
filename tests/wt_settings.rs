@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use onecoat::Error;
 use onecoat::jsonc::{self, Edit, Splice};
+use onecoat::model::ids::Slot;
 use onecoat::model::theme::{Theme, Validated};
 use onecoat::render::wt;
 use onecoat::themes::ThemeSet;
@@ -31,15 +32,15 @@ fn splice_into(source: &str, edits: &[Edit]) -> Splice {
 }
 
 fn settings_edits(set: &ThemeSet) -> Vec<Edit> {
-    wt::settings_edits(nord(set), wt::ProfileScheme::Report).unwrap()
+    wt::settings_edits(nord(set), Slot::Dark, wt::ProfileScheme::Report).unwrap()
 }
 
 fn repoint_edits(set: &ThemeSet) -> Vec<Edit> {
-    wt::settings_edits(nord(set), wt::ProfileScheme::All).unwrap()
+    wt::settings_edits(nord(set), Slot::Dark, wt::ProfileScheme::All).unwrap()
 }
 
 fn fragment_edits(set: &ThemeSet) -> Vec<Edit> {
-    wt::fragment_edits(nord(set)).unwrap()
+    wt::fragment_edits(nord(set), Slot::Dark).unwrap()
 }
 
 #[test]

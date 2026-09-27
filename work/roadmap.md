@@ -14,7 +14,7 @@ Each requirement ID appears once, on the slice that completes it. An earlier sli
 | [x] | VS1 | `wt-scheme-fragment` | Defines the theme model, validates it, ships one bundled theme, derives the scheme from base16 roles, answers `list`, and writes the fragment when `use` runs | R-1, R-2, R-3, R-5, R-6, R-9, R-10, R-11, R-32, R-41, R-42, N-1 to N-6 |
 | [x] | VS2 | `wt-settings-splice` | Edits the three owned keys in `settings.json` through the JSONC CST, restores the file from its backup and fails the apply when the result no longer parses, and adds `--dry-run` with the key-level diff plus `--targets` | R-12, R-13, R-14, R-15, R-23, R-31 |
 | [x] | VS3 | `wt-profile-pins` | Reports profiles that pin a scheme, repoints them under `--profile-color-scheme all`, and keeps foreign `themes` entries | R-16, R-17 |
-| [ ] | VS4 | `wt-slot-state` | Persists the slot assignment, accepts `--slot`, and answers `current` | R-8, R-25 |
+| [x] | VS4 | `wt-slot-state` | Persists the slot assignment, accepts `--slot`, and answers `current` | R-8, R-25 |
 
 ## M1: omp target
 

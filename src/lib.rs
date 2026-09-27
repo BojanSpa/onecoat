@@ -7,6 +7,7 @@ pub mod model;
 pub mod plan;
 pub mod render;
 pub mod rolemap;
+pub mod state;
 pub mod targets;
 pub mod themes;
 pub mod validate;
