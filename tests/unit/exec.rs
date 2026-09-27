@@ -7,19 +7,44 @@ use tempfile::TempDir;
 use super::{WriteOutcome, execute, preview, resolve, verify_written};
 use crate::Error;
 use crate::jsonc::{Edit, Key};
-use crate::model::ids::Target;
-use crate::plan::{Absent, Plan, PlannedWrite};
+use crate::model::ids::{Slot, Target};
+use crate::plan::{Absent, Content, Plan, PlannedWrite};
+use crate::render::omp;
 
 fn one_write_plan(path: PathBuf, absent: Absent) -> Plan {
     Plan {
         writes: vec![PlannedWrite {
             target: Target::Wt,
             path,
-            edits: vec![Edit::Set {
+            content: Content::Jsonc(vec![Edit::Set {
                 key: Key::parse("theme"),
                 value: json!("dark"),
-            }],
+            }]),
             absent,
+            pins: None,
+        }],
+    }
+}
+
+fn generated_plan(path: PathBuf) -> Plan {
+    Plan {
+        writes: vec![PlannedWrite {
+            target: Target::Omp,
+            path,
+            content: Content::Generated("{\n  \"name\": \"onecoat-dark\"\n}\n".to_owned()),
+            absent: Absent::Create,
+            pins: None,
+        }],
+    }
+}
+
+fn yaml_plan(path: PathBuf) -> Plan {
+    Plan {
+        writes: vec![PlannedWrite {
+            target: Target::Omp,
+            path,
+            content: Content::Yaml(omp::config_edits(Slot::Dark)),
+            absent: Absent::Fail,
             pins: None,
         }],
     }
@@ -251,4 +276,58 @@ fn resolving_a_missing_file_touches_nothing() {
     assert_eq!(resolved[0].path, target);
     assert_eq!(resolved[0].backup, None);
     assert!(!target.exists(), "resolving a plan writes nothing");
+}
+
+#[test]
+fn a_generated_file_reports_no_keys_and_is_written_whole() {
+    let (dir, target) = sandbox();
+
+    let lines = preview(&generated_plan(target.clone())).unwrap();
+    assert_eq!(lines, [format!("would write {}", target.display())]);
+
+    let reports = execute(&generated_plan(target.clone())).unwrap();
+    assert_eq!(reports[0].target, Target::Omp);
+    assert_eq!(reports[0].outcome, WriteOutcome::Written);
+
+    assert_eq!(
+        fs::read_to_string(&target).unwrap(),
+        "{\n  \"name\": \"onecoat-dark\"\n}\n"
+    );
+
+    assert!(!dir.path().join("settings.json.onecoat.bak").exists());
+
+    let again = execute(&generated_plan(target.clone())).unwrap();
+    assert_eq!(again[0].outcome, WriteOutcome::Unchanged);
+}
+
+#[test]
+fn a_yaml_pin_is_spliced_reported_and_backed_up() {
+    let (dir, target) = sandbox();
+    fs::write(&target, "model: x\ntheme:\n  dark: old\n").unwrap();
+
+    let resolved = resolve(&yaml_plan(target.clone())).unwrap();
+    assert_eq!(resolved[0].changed, [Key::parse("theme.dark")]);
+
+    assert_eq!(
+        String::from_utf8(resolved[0].bytes.clone()).unwrap(),
+        "model: x\ntheme:\n  dark: onecoat-dark\n"
+    );
+
+    let reports = execute(&yaml_plan(target.clone())).unwrap();
+    assert_eq!(reports[0].outcome, WriteOutcome::Written);
+
+    assert_eq!(
+        fs::read_to_string(&target).unwrap(),
+        "model: x\ntheme:\n  dark: onecoat-dark\n"
+    );
+
+    assert_eq!(
+        fs::read_to_string(dir.path().join("settings.json.onecoat.bak")).unwrap(),
+        "model: x\ntheme:\n  dark: old\n"
+    );
+
+    assert_eq!(
+        execute(&yaml_plan(target.clone())).unwrap()[0].outcome,
+        WriteOutcome::Unchanged
+    );
 }

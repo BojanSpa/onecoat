@@ -20,12 +20,27 @@ impl Sandbox {
             .args(args)
             .env("LOCALAPPDATA", self.root.path())
             .env("APPDATA", self.root.path())
+            .env("PI_CODING_AGENT_DIR", self.agent())
             .output()
             .unwrap()
     }
 
     fn root(&self) -> &Path {
         self.root.path()
+    }
+
+    fn agent(&self) -> PathBuf {
+        self.root.path().join("omp").join("agent")
+    }
+
+    fn omp_theme(&self, slot: &str) -> PathBuf {
+        self.agent()
+            .join("themes")
+            .join(format!("onecoat-{slot}.json"))
+    }
+
+    fn omp_config(&self) -> PathBuf {
+        self.agent().join("config.yml")
     }
 
     fn fragment(&self) -> PathBuf {
@@ -71,6 +86,14 @@ impl Sandbox {
 
     fn install_settings(&self, fixture: &str) -> PathBuf {
         self.install(fixture, &self.settings())
+    }
+
+    fn install_config(&self, fixture: &str) -> PathBuf {
+        self.install(fixture, &self.omp_config())
+    }
+
+    fn install_omp_theme(&self, fixture: &str, slot: &str) -> PathBuf {
+        self.install(fixture, &self.omp_theme(slot))
     }
 }
 
@@ -182,6 +205,7 @@ fn a_user_theme_shadows_the_bundled_one() {
     let sandbox = Sandbox::new();
     sandbox.install_theme("themes/shadow-nord.toml", "shadow-nord.toml");
     sandbox.install_settings("wt/settings.json");
+    sandbox.install_config("omp/config.yml");
 
     let listed = sandbox.run(&["list", "--json"]);
     assert_eq!(code(&listed), 0);
@@ -210,10 +234,13 @@ fn a_user_theme_shadows_the_bundled_one() {
 }
 
 #[test]
-fn use_writes_the_fragment_and_the_settings_file() {
+fn use_writes_every_target() {
     let sandbox = Sandbox::new();
     let settings = sandbox.install_settings("wt/settings.json");
+    sandbox.install_config("omp/config.yml");
     let fragment = sandbox.fragment();
+    let omp_theme = sandbox.omp_theme("dark");
+    let omp_config = sandbox.omp_config();
 
     let output = sandbox.run(&["use", "nord"]);
     assert_eq!(code(&output), 0, "{}", stderr(&output));
@@ -222,9 +249,11 @@ fn use_writes_the_fragment_and_the_settings_file() {
     assert_eq!(
         stdout(&output),
         format!(
-            "wrote {}\nwrote {}\n{PIN_NOTE}\n",
+            "wrote {}\nwrote {}\n{PIN_NOTE}\nwrote {}\nwrote {}\n",
             fragment.display(),
-            settings.display()
+            settings.display(),
+            omp_theme.display(),
+            omp_config.display()
         )
     );
 
@@ -238,9 +267,27 @@ fn use_writes_the_fragment_and_the_settings_file() {
         fixture_bytes("wt/settings-spliced.json")
     );
 
+    assert_eq!(
+        std::fs::read(&omp_theme).unwrap(),
+        fixture_bytes("omp/onecoat-dark.json")
+    );
+
+    assert_eq!(
+        std::fs::read(&omp_config).unwrap(),
+        fixture_bytes("omp/config-spliced.yml")
+    );
+
+    assert_eq!(
+        std::fs::read(append_to_file_name(&omp_config, ".onecoat.bak")).unwrap(),
+        fixture_bytes("omp/config.yml")
+    );
+
     assert!(!append_to_file_name(&fragment, ".onecoat.bak").exists());
     assert!(!append_to_file_name(&fragment, ".onecoat.tmp").exists());
     assert!(!append_to_file_name(&settings, ".onecoat.tmp").exists());
+    assert!(!append_to_file_name(&omp_theme, ".onecoat.bak").exists());
+    assert!(!append_to_file_name(&omp_theme, ".onecoat.tmp").exists());
+    assert!(!append_to_file_name(&omp_config, ".onecoat.tmp").exists());
 }
 
 #[test]
@@ -263,6 +310,8 @@ fn a_missing_settings_file_fails_without_writing_the_fragment() {
 
     assert!(!sandbox.fragment().exists());
     assert!(!sandbox.settings().exists());
+    assert!(!sandbox.omp_theme("dark").exists());
+    assert!(!sandbox.omp_config().exists());
 }
 
 #[test]
@@ -296,9 +345,12 @@ fn a_second_use_neither_rewrites_nor_rebacks_up() {
     let sandbox = Sandbox::new();
     let fragment = sandbox.install_fragment("wt/previous-fragment.json");
     let settings = sandbox.install_settings("wt/settings.json");
+    let omp_theme = sandbox.omp_theme("dark");
+    let omp_config = sandbox.install_config("omp/config.yml");
     let state = sandbox.state();
     let fragment_backup = append_to_file_name(&fragment, ".onecoat.bak");
     let settings_backup = append_to_file_name(&settings, ".onecoat.bak");
+    let config_backup = append_to_file_name(&omp_config, ".onecoat.bak");
 
     let first = sandbox.run(&["use", "nord"]);
     assert_eq!(code(&first), 0, "{}", stderr(&first));
@@ -306,9 +358,12 @@ fn a_second_use_neither_rewrites_nor_rebacks_up() {
     let stamps = [
         stamp(&fragment),
         stamp(&settings),
+        stamp(&omp_theme),
+        stamp(&omp_config),
         stamp(&state),
         stamp(&fragment_backup),
         stamp(&settings_backup),
+        stamp(&config_backup),
     ];
 
     let second = sandbox.run(&["use", "nord"]);
@@ -317,9 +372,11 @@ fn a_second_use_neither_rewrites_nor_rebacks_up() {
     assert_eq!(
         stdout(&second),
         format!(
-            "unchanged {}\nunchanged {}\n{PIN_NOTE}\n",
+            "unchanged {}\nunchanged {}\n{PIN_NOTE}\nunchanged {}\nunchanged {}\n",
             fragment.display(),
-            settings.display()
+            settings.display(),
+            omp_theme.display(),
+            omp_config.display()
         )
     );
 
@@ -334,6 +391,16 @@ fn a_second_use_neither_rewrites_nor_rebacks_up() {
     );
 
     assert_eq!(
+        std::fs::read(&omp_theme).unwrap(),
+        fixture_bytes("omp/onecoat-dark.json")
+    );
+
+    assert_eq!(
+        std::fs::read(&omp_config).unwrap(),
+        fixture_bytes("omp/config-spliced.yml")
+    );
+
+    assert_eq!(
         std::fs::read(&fragment_backup).unwrap(),
         fixture_bytes("wt/previous-fragment.json")
     );
@@ -344,27 +411,37 @@ fn a_second_use_neither_rewrites_nor_rebacks_up() {
     );
 
     assert_eq!(
+        std::fs::read(&config_backup).unwrap(),
+        fixture_bytes("omp/config.yml")
+    );
+
+    assert_eq!(
         std::fs::read_to_string(&state).unwrap(),
-        "{\n  \"slots\": {\n    \"dark\": \"nord\",\n    \"light\": null\n  },\n  \"targets\": [\n    \"wt\"\n  ]\n}\n"
+        "{\n  \"slots\": {\n    \"dark\": \"nord\",\n    \"light\": null\n  },\n  \"targets\": [\n    \"wt\",\n    \"omp\"\n  ]\n}\n"
     );
 
     assert_eq!(
         [
             stamp(&fragment),
             stamp(&settings),
+            stamp(&omp_theme),
+            stamp(&omp_config),
             stamp(&state),
             stamp(&fragment_backup),
             stamp(&settings_backup),
+            stamp(&config_backup),
         ],
         stamps
     );
 }
 
 #[test]
-fn use_backs_up_both_files_it_replaces() {
+fn use_backs_up_every_file_it_replaces() {
     let sandbox = Sandbox::new();
     let fragment = sandbox.install_fragment("wt/previous-fragment.json");
     let settings = sandbox.install_settings("wt/settings.json");
+    let omp_theme = sandbox.omp_theme("dark");
+    let omp_config = sandbox.install_config("omp/config.yml");
 
     let output = sandbox.run(&["use", "nord"]);
     assert_eq!(code(&output), 0, "{}", stderr(&output));
@@ -379,8 +456,15 @@ fn use_backs_up_both_files_it_replaces() {
         fixture_bytes("wt/settings.json")
     );
 
+    assert_eq!(
+        std::fs::read(append_to_file_name(&omp_config, ".onecoat.bak")).unwrap(),
+        fixture_bytes("omp/config.yml")
+    );
+
+    assert!(!append_to_file_name(&omp_theme, ".onecoat.bak").exists());
     assert!(!append_to_file_name(&fragment, ".onecoat.tmp").exists());
     assert!(!append_to_file_name(&settings, ".onecoat.tmp").exists());
+    assert!(!append_to_file_name(&omp_config, ".onecoat.tmp").exists());
 }
 
 #[test]
@@ -388,6 +472,7 @@ fn a_failed_backup_leaves_the_settings_file_intact() {
     let sandbox = Sandbox::new();
     let fragment = sandbox.install_fragment("wt/previous-fragment.json");
     let settings = sandbox.install_settings("wt/settings.json");
+    let omp_config = sandbox.install_config("omp/config.yml");
     let backup = append_to_file_name(&fragment, ".onecoat.bak");
     std::fs::create_dir(&backup).unwrap();
 
@@ -408,6 +493,13 @@ fn a_failed_backup_leaves_the_settings_file_intact() {
         "the settings file is not written when an earlier write fails"
     );
 
+    assert_eq!(
+        std::fs::read(&omp_config).unwrap(),
+        fixture_bytes("omp/config.yml"),
+        "the omp config is not written when an earlier write fails"
+    );
+
+    assert!(!sandbox.omp_theme("dark").exists());
     assert!(!append_to_file_name(&fragment, ".onecoat.tmp").exists());
 }
 
@@ -416,6 +508,8 @@ fn dry_run_names_the_planned_files_and_the_changed_keys() {
     let sandbox = Sandbox::new();
     let fragment = sandbox.fragment();
     let settings = sandbox.install_settings("wt/settings.json");
+    let omp_theme = sandbox.omp_theme("dark");
+    let omp_config = sandbox.install_config("omp/config.yml");
     let stamp_before = stamp(&settings);
 
     let output = sandbox.run(&["use", "nord", "--dry-run"]);
@@ -425,14 +519,22 @@ fn dry_run_names_the_planned_files_and_the_changed_keys() {
     assert_eq!(
         stdout(&output),
         format!(
-            "would assign dark = nord\nwould write {}\n  schemes\nwould write {}\n  theme\n  themes\n  profiles.defaults.colorScheme\n{PIN_NOTE}\n",
+            "would assign dark = nord\nwould write {}\n  schemes\nwould write {}\n  theme\n  themes\n  profiles.defaults.colorScheme\n{PIN_NOTE}\nwould write {}\nwould write {}\n  theme.dark\n",
             fragment.display(),
-            settings.display()
+            settings.display(),
+            omp_theme.display(),
+            omp_config.display()
         )
     );
 
     assert!(!fragment.exists(), "dry-run creates nothing");
     assert!(!sandbox.state().exists(), "dry-run writes no state");
+    assert!(!omp_theme.exists(), "dry-run creates no omp theme file");
+
+    assert_eq!(
+        std::fs::read(&omp_config).unwrap(),
+        fixture_bytes("omp/config.yml")
+    );
 
     assert_eq!(
         std::fs::read(&settings).unwrap(),
@@ -442,6 +544,8 @@ fn dry_run_names_the_planned_files_and_the_changed_keys() {
     assert_eq!(stamp(&settings), stamp_before);
     assert!(!append_to_file_name(&settings, ".onecoat.bak").exists());
     assert!(!append_to_file_name(&settings, ".onecoat.tmp").exists());
+    assert!(!append_to_file_name(&omp_config, ".onecoat.bak").exists());
+    assert!(!append_to_file_name(&omp_config, ".onecoat.tmp").exists());
 }
 
 #[test]
@@ -449,6 +553,8 @@ fn dry_run_after_an_apply_reports_nothing_to_do() {
     let sandbox = Sandbox::new();
     let fragment = sandbox.install_fragment("wt/nord-dark-fragment.json");
     let settings = sandbox.install_settings("wt/settings-spliced.json");
+    let omp_theme = sandbox.install_omp_theme("omp/onecoat-dark.json", "dark");
+    let omp_config = sandbox.install_config("omp/config-spliced.yml");
 
     let output = sandbox.run(&["use", "nord", "--dry-run"]);
     assert_eq!(code(&output), 0, "{}", stderr(&output));
@@ -456,9 +562,11 @@ fn dry_run_after_an_apply_reports_nothing_to_do() {
     assert_eq!(
         stdout(&output),
         format!(
-            "would assign dark = nord\nunchanged {}\nunchanged {}\n{PIN_NOTE}\n",
+            "would assign dark = nord\nunchanged {}\nunchanged {}\n{PIN_NOTE}\nunchanged {}\nunchanged {}\n",
             fragment.display(),
-            settings.display()
+            settings.display(),
+            omp_theme.display(),
+            omp_config.display()
         )
     );
 
@@ -469,28 +577,21 @@ fn dry_run_after_an_apply_reports_nothing_to_do() {
         fixture_bytes("wt/settings-spliced.json")
     );
 
+    assert_eq!(
+        std::fs::read(&omp_config).unwrap(),
+        fixture_bytes("omp/config-spliced.yml")
+    );
+
     assert!(!append_to_file_name(&settings, ".onecoat.bak").exists());
+    assert!(!append_to_file_name(&omp_config, ".onecoat.bak").exists());
 }
 
 #[test]
 fn targets_limit_the_apply() {
     let sandbox = Sandbox::new();
     let settings = sandbox.install_settings("wt/settings.json");
-    for (value, expected) in [
-        ("omp", "no writer for omp\n"),
-        ("herdr,omp", "no writer for herdr\nno writer for omp\n"),
-    ] {
-        let output = sandbox.run(&["use", "nord", "--targets", value]);
-        assert_eq!(code(&output), 0, "--targets {value}: {}", stderr(&output));
-        assert_eq!(stdout(&output), expected, "--targets {value}");
-        assert!(!sandbox.fragment().exists(), "--targets {value}");
-
-        assert_eq!(
-            std::fs::read(&settings).unwrap(),
-            fixture_bytes("wt/settings.json"),
-            "--targets {value}"
-        );
-    }
+    let omp_theme = sandbox.omp_theme("dark");
+    let omp_config = sandbox.install_config("omp/config.yml");
 
     let limited = sandbox.run(&["use", "nord", "--targets", "wt"]);
     assert_eq!(code(&limited), 0, "{}", stderr(&limited));
@@ -501,6 +602,53 @@ fn targets_limit_the_apply() {
             "wrote {}\nwrote {}\n{PIN_NOTE}\n",
             sandbox.fragment().display(),
             settings.display()
+        )
+    );
+
+    assert!(sandbox.fragment().exists());
+
+    assert!(
+        !omp_theme.exists(),
+        "--targets wt leaves the omp target alone"
+    );
+
+    assert_eq!(
+        std::fs::read(&omp_config).unwrap(),
+        fixture_bytes("omp/config.yml"),
+        "--targets wt leaves the omp target alone"
+    );
+
+    let omp = sandbox.run(&["use", "nord", "--targets", "omp"]);
+    assert_eq!(code(&omp), 0, "{}", stderr(&omp));
+
+    assert_eq!(
+        stdout(&omp),
+        format!(
+            "wrote {}\nwrote {}\n",
+            omp_theme.display(),
+            omp_config.display()
+        )
+    );
+
+    assert_eq!(
+        std::fs::read(&omp_theme).unwrap(),
+        fixture_bytes("omp/onecoat-dark.json")
+    );
+
+    assert_eq!(
+        std::fs::read_to_string(sandbox.state()).unwrap(),
+        "{\n  \"slots\": {\n    \"dark\": \"nord\",\n    \"light\": null\n  },\n  \"targets\": [\n    \"omp\"\n  ]\n}\n"
+    );
+
+    let herdr = sandbox.run(&["use", "nord", "--targets", "herdr,omp"]);
+    assert_eq!(code(&herdr), 0, "{}", stderr(&herdr));
+
+    assert_eq!(
+        stdout(&herdr),
+        format!(
+            "unchanged {}\nunchanged {}\nno writer for herdr\n",
+            omp_theme.display(),
+            omp_config.display()
         )
     );
 }
@@ -553,8 +701,10 @@ fn a_broken_user_theme_fails_both_commands() {
 fn writes_stay_inside_the_target_files_and_onecoats_own_directory() {
     let sandbox = Sandbox::new();
     sandbox.install_settings("wt/settings.json");
+    sandbox.install_config("omp/config.yml");
     let fragment = sandbox.fragment();
     let settings = sandbox.settings();
+    let agent = sandbox.agent();
     let state = sandbox.state();
 
     let output = sandbox.run(&["use", "nord"]);
@@ -564,6 +714,7 @@ fn writes_stay_inside_the_target_files_and_onecoats_own_directory() {
         path.starts_with(fragment.parent().unwrap())
             || path == settings
             || path == append_to_file_name(&settings, ".onecoat.bak")
+            || path.starts_with(&agent)
             || path == state
     };
 
@@ -589,6 +740,8 @@ fn profile_color_scheme_all_repoints_every_pin() {
     let sandbox = Sandbox::new();
     let settings = sandbox.install_settings("wt/settings.json");
     let fragment = sandbox.fragment();
+    let omp_theme = sandbox.omp_theme("dark");
+    let omp_config = sandbox.install_config("omp/config.yml");
 
     let output = sandbox.run(&["use", "nord", "--profile-color-scheme", "all"]);
     assert_eq!(code(&output), 0, "{}", stderr(&output));
@@ -596,9 +749,11 @@ fn profile_color_scheme_all_repoints_every_pin() {
     assert_eq!(
         stdout(&output),
         format!(
-            "wrote {}\nwrote {}\n{REPOINTED_NOTE}\n",
+            "wrote {}\nwrote {}\n{REPOINTED_NOTE}\nwrote {}\nwrote {}\n",
             fragment.display(),
-            settings.display()
+            settings.display(),
+            omp_theme.display(),
+            omp_config.display()
         )
     );
 
@@ -613,9 +768,11 @@ fn profile_color_scheme_all_repoints_every_pin() {
     assert_eq!(
         stdout(&again),
         format!(
-            "unchanged {}\nunchanged {}\n{REPOINTED_PAIR_NOTE}\n",
+            "unchanged {}\nunchanged {}\n{REPOINTED_PAIR_NOTE}\nunchanged {}\nunchanged {}\n",
             fragment.display(),
-            settings.display()
+            settings.display(),
+            omp_theme.display(),
+            omp_config.display()
         )
     );
 
@@ -652,6 +809,7 @@ fn current_reports_no_assignment_before_any_use() {
 fn use_slot_records_the_assignment_and_keeps_the_other_slot() {
     let sandbox = Sandbox::new();
     sandbox.install_settings("wt/settings.json");
+    sandbox.install_config("omp/config.yml");
     let state = sandbox.state();
 
     let light = sandbox.run(&["use", "nord", "--slot", "light"]);
@@ -660,7 +818,7 @@ fn use_slot_records_the_assignment_and_keeps_the_other_slot() {
 
     assert_eq!(
         std::fs::read_to_string(&state).unwrap(),
-        "{\n  \"slots\": {\n    \"dark\": null,\n    \"light\": \"nord\"\n  },\n  \"targets\": [\n    \"wt\"\n  ]\n}\n"
+        "{\n  \"slots\": {\n    \"dark\": null,\n    \"light\": \"nord\"\n  },\n  \"targets\": [\n    \"wt\",\n    \"omp\"\n  ]\n}\n"
     );
 
     let dark = sandbox.run(&["use", "nord"]);
@@ -668,7 +826,7 @@ fn use_slot_records_the_assignment_and_keeps_the_other_slot() {
 
     assert_eq!(
         std::fs::read_to_string(&state).unwrap(),
-        "{\n  \"slots\": {\n    \"dark\": \"nord\",\n    \"light\": \"nord\"\n  },\n  \"targets\": [\n    \"wt\"\n  ]\n}\n"
+        "{\n  \"slots\": {\n    \"dark\": \"nord\",\n    \"light\": \"nord\"\n  },\n  \"targets\": [\n    \"wt\",\n    \"omp\"\n  ]\n}\n"
     );
 
     let human = sandbox.run(&["current"]);
@@ -676,7 +834,7 @@ fn use_slot_records_the_assignment_and_keeps_the_other_slot() {
 
     assert_eq!(
         stdout(&human),
-        "slot  theme targets\ndark  nord  wt\nlight nord  wt\n"
+        "slot  theme targets\ndark  nord  wt,omp\nlight nord  wt,omp\n"
     );
 
     let machine = sandbox.run(&["current", "--json"]);
@@ -686,7 +844,7 @@ fn use_slot_records_the_assignment_and_keeps_the_other_slot() {
         parsed,
         serde_json::json!({
             "slots": {"dark": "nord", "light": "nord"},
-            "targets": ["wt"],
+            "targets": ["wt", "omp"],
         })
     );
 }
@@ -696,9 +854,9 @@ fn an_apply_without_a_writer_still_records_the_assignment() {
     let sandbox = Sandbox::new();
     sandbox.install_settings("wt/settings.json");
 
-    let output = sandbox.run(&["use", "nord", "--slot", "light", "--targets", "omp"]);
+    let output = sandbox.run(&["use", "nord", "--slot", "light", "--targets", "herdr"]);
     assert_eq!(code(&output), 0, "{}", stderr(&output));
-    assert_eq!(stdout(&output), "no writer for omp\n");
+    assert_eq!(stdout(&output), "no writer for herdr\n");
 
     let machine = sandbox.run(&["current", "--json"]);
     let parsed: serde_json::Value = serde_json::from_str(&stdout(&machine)).unwrap();
@@ -741,4 +899,86 @@ fn a_malformed_state_file_fails_the_commands_that_read_it() {
         std::fs::read(&settings).unwrap(),
         fixture_bytes("wt/settings.json")
     );
+}
+
+#[test]
+fn use_slot_light_writes_its_own_file_and_pin() {
+    let sandbox = Sandbox::new();
+    sandbox.install_settings("wt/settings.json");
+    sandbox.install_config("omp/config.yml");
+
+    let output = sandbox.run(&["use", "nord", "--slot", "light"]);
+    assert_eq!(code(&output), 0, "{}", stderr(&output));
+
+    let theme = sandbox.omp_theme("light");
+    let light: serde_json::Value = serde_json::from_slice(&std::fs::read(&theme).unwrap()).unwrap();
+
+    let dark: serde_json::Value =
+        serde_json::from_slice(&fixture_bytes("omp/onecoat-dark.json")).unwrap();
+
+    assert_eq!(light["name"], "onecoat-light");
+    assert_eq!(light["colors"], dark["colors"]);
+
+    assert_eq!(
+        std::fs::read(sandbox.omp_config()).unwrap(),
+        fixture_bytes("omp/config-light.yml")
+    );
+
+    assert!(!sandbox.omp_theme("dark").exists());
+}
+
+#[test]
+fn a_missing_config_file_fails_without_writing_the_theme_file() {
+    let sandbox = Sandbox::new();
+    sandbox.install_settings("wt/settings.json");
+    let config = sandbox.omp_config();
+
+    let output = sandbox.run(&["use", "nord"]);
+    assert_eq!(code(&output), 3, "{}", stderr(&output));
+    assert!(stdout(&output).is_empty(), "{}", stdout(&output));
+
+    let message = stderr(&output);
+    assert!(message.contains(&config.display().to_string()), "{message}");
+    assert!(message.contains("retry"), "{message}");
+
+    assert!(!sandbox.omp_theme("dark").exists());
+    assert!(!sandbox.fragment().exists());
+}
+
+#[test]
+fn an_unknown_omp_token_fails_the_apply() {
+    let sandbox = Sandbox::new();
+    let theme = sandbox.install_theme("themes/unknown-omp-token.toml", "unknown-omp-token.toml");
+    sandbox.install_settings("wt/settings.json");
+    sandbox.install_config("omp/config.yml");
+
+    let output = sandbox.run(&["use", "unknown-omp-token"]);
+    assert_eq!(code(&output), 3, "{}", stderr(&output));
+    assert!(stdout(&output).is_empty(), "{}", stdout(&output));
+
+    let message = stderr(&output);
+    assert!(message.contains(&theme.display().to_string()), "{message}");
+    assert!(message.contains("bogusToken"), "{message}");
+    assert!(message.contains("[targets.omp]"), "{message}");
+
+    assert!(
+        !sandbox.fragment().exists(),
+        "the apply fails before it writes"
+    );
+}
+
+#[test]
+fn a_text_override_on_an_omp_token_fails_the_apply() {
+    let sandbox = Sandbox::new();
+    let theme = sandbox.install_theme("themes/text-omp-override.toml", "text-omp-override.toml");
+    sandbox.install_settings("wt/settings.json");
+    sandbox.install_config("omp/config.yml");
+
+    let output = sandbox.run(&["use", "text-omp-override"]);
+    assert_eq!(code(&output), 3, "{}", stderr(&output));
+
+    let message = stderr(&output);
+    assert!(message.contains(&theme.display().to_string()), "{message}");
+    assert!(message.contains("targets.omp.text"), "{message}");
+    assert!(message.contains("#rrggbb"), "{message}");
 }

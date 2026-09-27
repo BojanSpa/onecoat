@@ -7,6 +7,7 @@ use crate::model::color::HexColor;
 use crate::model::ids::Slot;
 use crate::model::palette::{AnsiSlot, Base16Entry};
 use crate::model::theme::{Theme, Validated};
+use crate::render::onecoat_name;
 
 const SCHEMES_KEY: &str = "schemes";
 const THEME_KEY: &str = "theme";
@@ -84,7 +85,7 @@ pub fn scheme(theme: &Theme<Validated>, slot: Slot) -> Result<Value, Error> {
     let ansi = &data.ansi;
 
     to_value(&WtScheme {
-        name: name(slot),
+        name: onecoat_name(slot),
         background: background(theme),
         foreground: data.wt.foreground.unwrap_or(palette[Base16Entry::B05]),
         cursorColor: data.wt.cursor_color.unwrap_or(palette[Base16Entry::B0D]),
@@ -115,7 +116,7 @@ pub fn window_theme(theme: &Theme<Validated>, slot: Slot) -> Result<Value, Error
     let palette = &theme.data.palette;
 
     to_value(&WtWindowTheme {
-        name: name(slot),
+        name: onecoat_name(slot),
         window: WtWindow {
             applicationTheme: slot.name().to_owned(),
             frame: background(theme),
@@ -134,7 +135,7 @@ pub fn window_theme(theme: &Theme<Validated>, slot: Slot) -> Result<Value, Error
 pub fn fragment_edits(theme: &Theme<Validated>, slot: Slot) -> Result<Vec<Edit>, Error> {
     Ok(vec![Edit::Element {
         key: Key::parse(SCHEMES_KEY),
-        name: name(slot),
+        name: onecoat_name(slot),
         value: scheme(theme, slot)?,
     }])
 }
@@ -148,18 +149,18 @@ pub fn settings_edits(
         Edit::Pair {
             key: Key::parse(THEME_KEY),
             side: slot,
-            name: name(slot),
+            name: onecoat_name(slot),
             fill: Fill::BuiltIn,
         },
         Edit::Element {
             key: Key::parse(THEMES_KEY),
-            name: name(slot),
+            name: onecoat_name(slot),
             value: window_theme(theme, slot)?,
         },
         Edit::Pair {
             key: Key::parse(COLOR_SCHEME_KEY),
             side: slot,
-            name: name(slot),
+            name: onecoat_name(slot),
             fill: Fill::FromString,
         },
     ];
@@ -169,16 +170,12 @@ pub fn settings_edits(
             key: Key::parse(PROFILES_KEY),
             field: COLOR_SCHEME_FIELD.to_owned(),
             side: slot,
-            name: name(slot),
+            name: onecoat_name(slot),
             fill: Fill::FromString,
         });
     }
 
     Ok(edits)
-}
-
-pub fn name(slot: Slot) -> String {
-    format!("onecoat-{}", slot.name())
 }
 
 fn background(theme: &Theme<Validated>) -> HexColor {

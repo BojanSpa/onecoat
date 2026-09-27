@@ -118,7 +118,7 @@ fn apply(paths: &Paths, args: &UseArgs) -> Result<(), Error> {
         args.targets.clone()
     };
 
-    let plan = Plan::wt(paths, theme, slot, args.profile_color_scheme)?.limited_to(&targets);
+    let plan = Plan::build(paths, theme, slot, args.profile_color_scheme)?.limited_to(&targets);
     let mut state = exec::read_state(&paths.state)?;
     if args.dry_run {
         let lines = exec::preview(&plan)?;

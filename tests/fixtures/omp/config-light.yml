@@ -1,0 +1,17 @@
+# Hand-authored in the shape of a real omp config; comments and blank lines prove the splice keeps them.
+model: claude-sonnet-4-5
+
+providers:
+  anthropic:
+    api_key: sk-ant-example-not-a-real-key
+
+theme:
+  dark: dainty-nord-1-0
+  light: onecoat-light
+
+secrets:
+  telemetry: false
+
+tools:
+  bash:
+    timeout_ms: 120000

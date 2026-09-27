@@ -5,7 +5,8 @@ use std::path::{Path, PathBuf};
 use crate::Error;
 use crate::jsonc::{self, Key};
 use crate::model::ids::Target;
-use crate::plan::{Absent, PinReport, Plan, PlannedWrite};
+use crate::plan::{Absent, Content, PinReport, Plan, PlannedWrite};
+use crate::render::omp;
 use crate::state::{Problem, State};
 
 const TEMP_SUFFIX: &str = ".onecoat.tmp";
@@ -29,6 +30,7 @@ pub struct WriteReport {
 pub struct ResolvedWrite {
     pub target: Target,
     pub path: PathBuf,
+    pub content: Content,
     pub bytes: Vec<u8>,
     pub changed: Vec<Key>,
     pub outcome: WriteOutcome,
@@ -75,7 +77,7 @@ pub fn execute(plan: &Plan) -> Result<Vec<WriteReport>, Error> {
         }
 
         replace(&write)?;
-        verify_written(&write.path, write.backup.as_deref())?;
+        verify_content(&write)?;
 
         reports.push(WriteReport {
             target: write.target,
@@ -89,15 +91,29 @@ pub fn execute(plan: &Plan) -> Result<Vec<WriteReport>, Error> {
 }
 
 pub fn verify_written(path: &Path, backup: Option<&Path>) -> Result<(), Error> {
-    let source = fs::read_to_string(path).map_err(|source| Error::FileUnreadable {
-        path: path.to_path_buf(),
-        source,
-    })?;
+    let source = read_text(path)?;
+    match jsonc::verify(path, &source) {
+        Ok(()) => Ok(()),
+        Err(problem) => restore_and_fail(path, backup, problem),
+    }
+}
 
-    let Err(problem) = jsonc::verify(path, &source) else {
-        return Ok(());
+fn verify_content(write: &ResolvedWrite) -> Result<(), Error> {
+    let path = write.path.as_path();
+    let source = read_text(path)?;
+
+    let problem = match &write.content {
+        Content::Jsonc(_) | Content::Generated(_) => jsonc::verify(path, &source).err(),
+        Content::Yaml(edits) => omp::splice_config(path, &source, edits).err(),
     };
 
+    match problem {
+        None => Ok(()),
+        Some(problem) => restore_and_fail(path, write.backup.as_deref(), problem),
+    }
+}
+
+fn restore_and_fail(path: &Path, backup: Option<&Path>, problem: Error) -> Result<(), Error> {
     let Some(backup) = backup else {
         return Err(problem);
     };
@@ -115,6 +131,13 @@ pub fn verify_written(path: &Path, backup: Option<&Path>) -> Result<(), Error> {
         path: path.to_path_buf(),
         backup: backup.to_path_buf(),
         source: Box::new(problem),
+    })
+}
+
+fn read_text(path: &Path) -> Result<String, Error> {
+    fs::read_to_string(path).map_err(|source| Error::FileUnreadable {
+        path: path.to_path_buf(),
+        source,
     })
 }
 
@@ -154,30 +177,34 @@ fn resolve_one(planned: &PlannedWrite) -> Result<ResolvedWrite, Error> {
         .is_some()
         .then(|| append_to_file_name(path, BACKUP_SUFFIX));
 
-    let source = existing
+    let existing_text = existing
         .as_deref()
         .map(|current| std::str::from_utf8(current).map_err(|_| not_utf8(path)))
         .transpose()?;
 
-    let (bytes, changed) = match source {
-        Some(source) => {
-            let spliced = jsonc::splice(path, source, &planned.edits)?;
-            (spliced.text.into_bytes(), spliced.changed)
+    let text = match (&existing_text, planned.absent) {
+        (Some(source), _) => *source,
+        (None, Absent::Fail) => {
+            return Err(Error::MissingFile {
+                path: planned.path.clone(),
+            });
         }
-        None => match planned.absent {
-            Absent::Fail => {
-                return Err(Error::MissingFile {
-                    path: planned.path.clone(),
-                });
-            }
-            Absent::Create => {
-                let spliced = jsonc::splice(path, jsonc::NEW_DOCUMENT, &planned.edits)?;
-                (spliced.text.into_bytes(), spliced.changed)
-            }
-        },
+        (None, Absent::Create) => jsonc::NEW_DOCUMENT,
     };
 
-    let pin_notes = match (source, &planned.pins) {
+    let (bytes, changed) = match &planned.content {
+        Content::Jsonc(edits) => {
+            let spliced = jsonc::splice(path, text, edits)?;
+            (spliced.text.into_bytes(), spliced.changed)
+        }
+        Content::Yaml(edits) => {
+            let spliced = omp::splice_config(path, text, edits)?;
+            (spliced.text.into_bytes(), spliced.changed)
+        }
+        Content::Generated(generated) => (generated.clone().into_bytes(), Vec::new()),
+    };
+
+    let pin_notes = match (existing_text, &planned.pins) {
         (Some(source), Some(report)) => report_pins(path, source, report)?,
         _ => Vec::new(),
     };
@@ -190,6 +217,7 @@ fn resolve_one(planned: &PlannedWrite) -> Result<ResolvedWrite, Error> {
     Ok(ResolvedWrite {
         target: planned.target,
         path: planned.path.clone(),
+        content: planned.content.clone(),
         bytes,
         changed,
         outcome,

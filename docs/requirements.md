@@ -27,7 +27,7 @@ Out of scope: remote/SSH Herdr clients; Windows Terminal window themes delivered
 - R-4 `validate` warns when adjacent surfaces (`base00`/`base01`/`base02`) are perceptually indistinguishable, and fails under `--strict`. Verified by: too-close surface pair.
 - R-5 User themes in `<config>/themes/*.toml` shadow bundled themes by `id`; `list` reports each theme's origin. Verified by: shadowing fixture.
 - R-6 Theme ids must not collide with omp built-in theme names (`dark`, `light`, `titanium`, …), because built-ins win over custom files. Verified by: rejecting such an id.
-- R-7 Every generated omp theme file is named `onecoat-<slot>.json`; the name is stable across theme switches.
+- R-7 Every generated omp theme file is named `onecoat-<slot>.json`; the name is stable across theme switches. Verified by: CLI tests that apply both slots and read the written paths back.
 
 ## Application
 
@@ -44,7 +44,7 @@ Out of scope: remote/SSH Herdr clients; Windows Terminal window themes delivered
 - R-18 Herdr artifact: `[theme] name = "terminal"`, `auto_switch = true`, `dark_name`, `light_name`, plus `[theme.custom]` shared tokens and `[theme.custom.dark]`/`[theme.custom.light]` layers.
 - R-19 A generated herdr config must pass `herdr config check`; onecoat runs it after writing when the binary is available and restores the backup on failure.
 - R-20 Herdr reload: run `herdr server reload-config` when a server socket exists; never restart, signal, or kill a client, and say so when only an interactive reload can pick the change up.
-- R-21 omp artifact: two theme files contain every required token, and `theme.dark`/`theme.light` are pinned to them once.
+- R-21 omp artifact: the applied slot's theme file carries every token the harness requires, and that slot's key under `theme` in `config.yml` is pinned to `onecoat-<slot>`. Verified by: a token-completeness test over the vendored list and a fixture config splice.
 - R-22 A running omp session picks up changed colors from a rewrite of the active theme file alone — no restart and no settings write while the pinned names are unchanged.
 - R-23 `--targets` limits an apply to the named targets and leaves every other target's files untouched.
 - R-24 Theme files whose rendering is unchanged are not rewritten, so omp's watcher is not woken by no-op applies.
@@ -87,7 +87,7 @@ Out of scope: remote/SSH Herdr clients; Windows Terminal window themes delivered
 - N-4 Writes are confined to the three targets' config files, onecoat's own directory, and `.onecoat.bak` companions.
 - N-5 Rendering is pure and platform-independent; only path resolution, appearance detection, and process signalling are Windows-specific.
 - N-6 No telemetry, no stored secrets.
-- N-7 omp's agent directory is honored from `PI_CODING_AGENT_DIR` with `~/.omp/agent` as the fallback; `--profile` isolated agent directories are out of scope.
+- N-7 omp's agent directory is honored from `PI_CODING_AGENT_DIR` with `~/.omp/agent` as the fallback; `--profile` isolated agent directories are out of scope. Verified by: CLI tests that point `PI_CODING_AGENT_DIR` at a sandbox agent directory.
 
 ## Acceptance
 

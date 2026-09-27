@@ -5,6 +5,7 @@ use crate::Error;
 use crate::jsonc::{Edit, Key};
 use crate::model::ids::{Slot, Target};
 use crate::model::theme::{Theme, Validated};
+use crate::render::omp;
 use crate::render::wt::{self, ProfileScheme};
 use crate::targets::Paths;
 
@@ -12,6 +13,13 @@ use crate::targets::Paths;
 pub enum Absent {
     Create,
     Fail,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum Content {
+    Jsonc(Vec<Edit>),
+    Generated(String),
+    Yaml(Vec<omp::ConfigEdit>),
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -24,7 +32,7 @@ pub enum PinReport {
 pub struct PlannedWrite {
     pub target: Target,
     pub path: PathBuf,
-    pub edits: Vec<Edit>,
+    pub content: Content,
     pub absent: Absent,
     pub pins: Option<PinReport>,
 }
@@ -35,7 +43,7 @@ pub struct Plan {
 }
 
 impl Plan {
-    pub fn wt(
+    pub fn build(
         paths: &Paths,
         theme: &Theme<Validated>,
         slot: Slot,
@@ -54,16 +62,30 @@ impl Plan {
                 PlannedWrite {
                     target: Target::Wt,
                     path: paths.wt_fragment.clone(),
-                    edits: wt::fragment_edits(theme, slot)?,
+                    content: Content::Jsonc(wt::fragment_edits(theme, slot)?),
                     absent: Absent::Create,
                     pins: None,
                 },
                 PlannedWrite {
                     target: Target::Wt,
                     path: paths.wt_settings.clone(),
-                    edits: wt::settings_edits(theme, slot, profile_scheme)?,
+                    content: Content::Jsonc(wt::settings_edits(theme, slot, profile_scheme)?),
                     absent: Absent::Fail,
                     pins,
+                },
+                PlannedWrite {
+                    target: Target::Omp,
+                    path: paths.omp_theme(slot),
+                    content: Content::Generated(omp::theme_file(theme, slot)?),
+                    absent: Absent::Create,
+                    pins: None,
+                },
+                PlannedWrite {
+                    target: Target::Omp,
+                    path: paths.omp_config.clone(),
+                    content: Content::Yaml(omp::config_edits(slot)),
+                    absent: Absent::Fail,
+                    pins: None,
                 },
             ],
         })
