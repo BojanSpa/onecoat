@@ -10,7 +10,8 @@
 
 # Workflow
 
-- The unit of work is one roadmap slice; take the lowest-numbered unstarted `VS`.
+- The unit of work is one roadmap slice; the next one is the lowest-numbered unstarted `VS`.
+- Never start a slice on your own: ask for approval of the next `VS`, and wait for a yes before writing its plan or code.
 - A slice is done only when every step in its plan's Verification section passes.
 - Implement against the owning `R-N`; update it and affected architecture contracts in the same PR.
 - The PR that completes a slice is titled `feat(vs<N>): <what the slice does>`, and its body names the requirement IDs it closes.
