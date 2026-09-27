@@ -28,7 +28,8 @@ fn a_missing_user_directory_loads_only_bundled_themes() {
     let dir = tempfile::tempdir().unwrap();
     let set = ThemeSet::load(&dir.path().join("absent")).unwrap();
     let ids: Vec<String> = set.iter().map(|theme| theme.id.to_string()).collect();
-    let expected: Vec<String> = BUNDLED.iter().map(|(name, _)| (*name).to_owned()).collect();
+    let mut expected: Vec<String> = BUNDLED.iter().map(|(name, _)| (*name).to_owned()).collect();
+    expected.sort();
     assert_eq!(ids, expected);
 }
 
@@ -97,5 +98,7 @@ fn non_toml_entries_are_skipped() {
 
     let set = ThemeSet::load(&themes).unwrap();
     let ids: Vec<&str> = set.iter().map(|theme| theme.id.as_str()).collect();
-    assert_eq!(ids, ["nord"], "only the bundled theme remains");
+    let mut expected: Vec<&str> = BUNDLED.iter().map(|(name, _)| *name).collect();
+    expected.sort();
+    assert_eq!(ids, expected, "only the bundled themes remain");
 }

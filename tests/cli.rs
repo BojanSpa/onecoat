@@ -172,7 +172,9 @@ fn list_prints_the_bundled_theme() {
 
     assert_eq!(
         stdout(&output),
-        "id   appearance origin  name\nnord dark       bundled Nord\n"
+        "id        appearance origin  name\n\
+         nord      dark       bundled Nord\n\
+         nord-grey dark       bundled Nord Grey\n"
     );
 
     assert!(output.stderr.is_empty(), "{}", stderr(&output));
@@ -191,6 +193,13 @@ fn list_json_prints_machine_readable_rows() {
     "appearance": "dark",
     "origin": "bundled",
     "derived": false
+  },
+  {
+    "id": "nord-grey",
+    "name": "Nord Grey",
+    "appearance": "dark",
+    "origin": "bundled",
+    "derived": true
   }
 ]
 "#;
@@ -200,13 +209,22 @@ fn list_json_prints_machine_readable_rows() {
 
     assert_eq!(
         parsed,
-        serde_json::json!([{
-            "id": "nord",
-            "name": "Nord",
-            "appearance": "dark",
-            "origin": "bundled",
-            "derived": false,
-        }])
+        serde_json::json!([
+            {
+                "id": "nord",
+                "name": "Nord",
+                "appearance": "dark",
+                "origin": "bundled",
+                "derived": false,
+            },
+            {
+                "id": "nord-grey",
+                "name": "Nord Grey",
+                "appearance": "dark",
+                "origin": "bundled",
+                "derived": true,
+            }
+        ])
     );
 
     assert!(output.stderr.is_empty(), "{}", stderr(&output));
@@ -222,20 +240,26 @@ fn a_user_theme_shadows_the_bundled_one() {
     let listed = sandbox.run(&["list", "--json"]);
     assert_eq!(code(&listed), 0);
     let rows: serde_json::Value = serde_json::from_str(&stdout(&listed)).unwrap();
-    assert_eq!(rows.as_array().unwrap().len(), 1, "{rows}");
-    assert_eq!(rows[0]["id"], "nord");
-    assert_eq!(rows[0]["name"], "Shadow Nord");
-    assert_eq!(rows[0]["origin"], "user");
+    let rows = rows.as_array().unwrap();
+    let shadowed: Vec<&serde_json::Value> = rows.iter().filter(|row| row["id"] == "nord").collect();
+    assert_eq!(shadowed.len(), 1, "{rows:?}");
+    assert_eq!(shadowed[0]["name"], "Shadow Nord");
+    assert_eq!(shadowed[0]["origin"], "user");
 
     let human = sandbox.run(&["list"]);
     let human = stdout(&human);
-    let lines: Vec<&str> = human.lines().collect();
-    assert_eq!(lines.len(), 2, "{human}");
+
+    let lines: Vec<&str> = human
+        .lines()
+        .filter(|line| line.split_whitespace().next() == Some("nord"))
+        .collect();
+
+    assert_eq!(lines.len(), 1, "{human}");
 
     assert!(
-        lines[1].contains("user") && lines[1].contains("Shadow Nord"),
+        lines[0].contains("user") && lines[0].contains("Shadow Nord"),
         "{}",
-        lines[1]
+        lines[0]
     );
 
     let applied = sandbox.run(&["use", "nord"]);

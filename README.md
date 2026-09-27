@@ -27,7 +27,7 @@ Working today:
 - The same command writes the `[theme]` block in `%APPDATA%\herdr\config.toml` with a TOML-preserving edit: the base theme, both slot names, the shared accents, and the applied slot's surface layer. The candidate is checked with `herdr config check` before it replaces the file, and a running herdr server is asked to reload.
 - `onecoat current` prints the theme assigned to each slot and the targets the last apply wrote.
 - `--dry-run` prints the planned writes and the keys they change. `--targets` limits an apply to the named targets.
-- One theme ships in the binary, `nord`. Your themes go in `%APPDATA%\onecoat\themes\*.toml` and can shadow a bundled theme with the same id.
+- Two themes ship in the binary, `nord` and `nord-grey`. The second maps the [Dainty – Nord](https://github.com/alexanderte/dainty-nord-vscode) VS Code theme (chroma 0, lightness 0) onto base16, keeping that theme's terminal and syntax colors exact and marking the palette best-effort. Your themes go in `%APPDATA%\onecoat\themes\*.toml` and can shadow a bundled theme with the same id.
 
 Not built yet:
 

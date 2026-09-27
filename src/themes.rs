@@ -7,7 +7,10 @@ use crate::error::Error;
 use crate::model::ids::{Origin, ThemeId};
 use crate::model::theme::{Theme, Validated};
 
-pub(crate) const BUNDLED: &[(&str, &str)] = &[("nord", include_str!("../themes/nord.toml"))];
+pub(crate) const BUNDLED: &[(&str, &str)] = &[
+    ("nord", include_str!("../themes/nord.toml")),
+    ("nord-grey", include_str!("../themes/nord-grey.toml")),
+];
 
 #[derive(Debug)]
 pub struct ThemeSet {

@@ -67,7 +67,7 @@ src/appearance.rs    registry read + notification
 src/targets.rs       path resolution, binary/socket discovery
 src/error.rs         the error enum and the R-42 message contract
 src/themes.rs        bundled registry, load and shadowing
-themes/nord.toml     the bundled theme source
+themes/*.toml        the bundled theme sources
 tests/fixtures/      vendored Windows Terminal schema and theme fixtures
 tools/tidy/          repo convention checks the gates run
 ```

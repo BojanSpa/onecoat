@@ -1,0 +1,37 @@
+id = "nord-grey"
+name = "Nord Grey"
+appearance = "dark"
+derived = true
+
+[palette]
+base00 = "#131517"
+base01 = "#1A1B1D"
+base02 = "#222224"
+base03 = "#515660"
+base04 = "#A2A2A2"
+base05 = "#DBDBDB"
+base06 = "#E9E9E9"
+base07 = "#EFEFEF"
+base08 = "#B6676D"
+base09 = "#AC92A7"
+base0A = "#E7CC98"
+base0B = "#A8BC96"
+base0C = "#98BDC8"
+base0D = "#8BA0B6"
+base0E = "#B79CB2"
+base0F = "#974B53"
+
+[ansi]
+black = "#3F4248"
+brightCyan = "#9FB9B8"
+
+[targets.wt]
+cursorColor = "#DDDDDD"
+
+[targets.omp]
+syntaxFunction = "#98BDC8"
+syntaxKeyword = "#8BA0B6"
+syntaxOperator = "#8BA0B6"
+syntaxPunctuation = "#EFEFEF"
+syntaxType = "#9FB9B8"
+syntaxVariable = "#DBDBDB"
