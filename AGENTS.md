@@ -11,12 +11,21 @@
 # Workflow
 
 - The unit of work is one roadmap slice; take the lowest-numbered unstarted `VS`.
-- Write `work/plans/<slug>.md` when the slice starts and commit it with the slice.
 - A slice is done only when every step in its plan's Verification section passes.
 - Implement against the owning `R-N`; update it and affected architecture contracts in the same PR.
 - The PR that completes a slice states its `VS` ID and the requirement IDs it closes.
 - All changes land through a PR; `main` is protected and rejects direct pushes.
+- Never open a pull request on your own; push the branch and ask for approval, or await it.
 - Commit subjects use conventional prefixes (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`, `ci:`, `build:`).
+
+# Plans
+
+- Copy `work/plans/_template.md` to `work/plans/vs<N>-<slug>.md` when the slice starts, and commit the plan with the slice.
+- Read the `plain-lang` skill (`skill://plain-lang`) before writing a plan.
+- Keep every plan sentence under 20 words, and end each sentence with an explicit `<br>`.
+- A plan is the veto list, not the design document: pin the decisions a reviewer could veto and the facts that cost time to re-derive, not the signatures, schema paths, and API shapes the implementer will look up.
+- Keep a plan under a page; a longer plan means the slice is too big or the plan is repeating lookups.
+- The style rules cover plans being written or edited; merged plans are not rewritten for style alone.
 
 # Code style
 

@@ -7,76 +7,69 @@
      Banned sections: Non-Goals, Out of Scope, Alternatives Considered, Risks/Mitigations, Future Work,
      and cleanup or changelog tails; a material scope boundary gets one inline line, never a section.
      No human-time estimates anywhere.
-     Bar to clear: an implementer who never saw the planning conversation executes every step top to bottom
-     with zero design decisions and no questions, and can tell at each step whether it succeeded.
+     Bar to clear: an agent that never saw the planning conversation can infer the intent, and every
+     judgement call it could get wrong is pinned. A plan is the veto list, not the design document:
+     signatures, schema paths, and API shapes are lookups the implementer does, not plan content.
+     If a plan runs past a page, the slice is too big or the plan is repeating lookups.
+     Plain words, active voice. No sentence runs past 20 words; split it instead of adding a clause.
+     Every sentence ends with `<br>`, as in docs/: a paragraph puts one sentence per line, a list item
+     keeps its text on one line with `<br>` between sentences. The rendered plan then breaks where the
+     author broke, and the diff stays per sentence.
      Delete every comment once the section is filled in. -->
 
 ## Context
 
-<!-- 2 to 4 sentences: the literal ask, the need it serves, the intended end state.
+<!-- Up to six sentences: the literal ask, the need it serves, the intended end state.
      Name the slice ID and say which work is deliberately left to later slices.
-     End with the requirement IDs from docs/requirements.md this slice closes,
-     as in "Closes R-1, R-2, R-3, N-1 to N-6.". -->
+     End with the requirement IDs this slice closes, as in "Closes R-1, R-2, N-1 to N-6.". -->
 
 ## Facts established on this machine (do not re-derive)
 
-<!-- Facts an implementer would otherwise re-derive: toolchain and tool versions, install and config paths,
-     external schema or file-format versions, platform behaviours the slice leans on, and what an earlier
-     slice already proved. Record how each was established (command output, file, tag) so a reader can
-     re-check it when it looks stale. -->
+<!-- Facts that cost real time to re-derive and live nowhere in the repo: versions, install and config
+     paths, external formats, platform behaviours, and what an earlier slice already proved. Facts that
+     are in the repo — key shapes in a vendored schema, signatures, API behaviour — are lookups, not
+     plan content; name the file instead of copying from it. -->
 
-- FACT — how it was established.
+- FACT — how it was established.<br>
 
 ## Approach
 
-<!-- Ordered, load-bearing change steps grouped by behavior, never by file.
-     Keep them sequential: each step ends with a tree that builds and every test written so far passing.
-     Each step carries: the concrete edit (verb, exact target, new behavior, never an area to "handle");
-     existing code to reuse; the exact signature or literal for every new or changed symbol, error string,
-     config key, and wire or JSON field; every callsite plus deletions for a rename, signature change, or
-     removal; the rival pattern to avoid; and the empty, missing, conflict, and error handling for each
-     new path. Derive new symbols from the owning R-N in docs/requirements.md, and update the affected
-     contract in docs/architecture.md in the same step. -->
+<!-- Ordered steps grouped by behavior, never by file, each ending with a tree that builds and the tests
+     so far passing. A step states the intent and the decisions that could go the other way — naming,
+     key spellings, ordering, error behavior — not a transcription of the signatures, fields, and
+     messages the implementer writes anyway. Derive new symbols from the owning R-N in
+     docs/requirements.md and update the affected contract in docs/architecture.md in the same step. -->
 
-### 1. BEHAVIOR
-
-- Reuse: PATH or SYMBOL
-- Exact signature or literal: SIGNATURE
-- Avoid: RIVAL PATTERN
-- Empty, missing, conflict, error: HANDLING
-
-### 2. BEHAVIOR
+1. STEP — what changes, and the decision in it that could go the other way.<br>
+2. STEP<br>
 
 ## Critical files & anchors
 
-<!-- At most five files that disambiguate non-obvious work, and why each one matters.
-     Omit files the approach already makes obvious. Anchors are hints, not line numbers to trust;
-     the implementer re-reads before editing. -->
+<!-- At most five files that disambiguate non-obvious work, one line each: what the file decides.
+     Omit files the approach already makes obvious; anchors are hints, not line numbers to trust. -->
 
-- `PATH` — SYMBOL or REGION decides REASON.
+- `PATH` — decides REASON.<br>
 
 ## Verification
 
-<!-- End-to-end proof, run from the repository root; state the shell and the prerequisites (env vars,
-     fixtures, build profile, restore steps for anything the checks mutate).
-     Work down from the gates to the behavior: the gates in AGENTS.md, then the checks that pin this
-     slice's requirement IDs, then a hand run of the new behavior outside the test suite, then the smoke
-     run against the live target, then the second-run evidence that nothing else shifted.
-     Every step is an exact command or action with its expected observable result — a green suite is not
-     proof. The slice is done when every step here passes. -->
+<!-- End-to-end proof from the repository root, with the shell and the prerequisites (env vars, fixtures,
+     build profile, and how to restore anything the checks mutate).
+     Gates first, then the checks that pin this slice's requirement IDs, then a hand run of the new
+     behavior, then the smoke against the live target, then the second-run evidence that nothing shifted.
+     Every step is an exact command or action with its expected observable result; a green suite is not
+     proof, and the slice is done when every step here passes. -->
 
-1. Gates: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test --all-targets`, `RUSTDOCFLAGS="-D warnings" cargo doc --no-deps` → all clean.
-2. COMMAND → EXPECTED OBSERVABLE RESULT.
-3. Live smoke: COMMAND → EXPECTED OBSERVABLE RESULT, including the change observed in the running program.
-4. Second run: COMMAND → unchanged output, target files byte-identical to the first run.
+1. Gates, all clean:<br>`cargo fmt --check`<br>`cargo clippy --all-targets -- -D warnings`<br>`cargo test --all-targets`<br>`RUSTDOCFLAGS="-D warnings" cargo doc --no-deps`<br>
+2. COMMAND → EXPECTED OBSERVABLE RESULT.<br>
+3. Live smoke: COMMAND → EXPECTED RESULT, including the change seen in the running program.<br>
+4. Second run: COMMAND → unchanged output, files byte-identical.<br>
 
 ## Assumptions & contingencies
 
-<!-- Only decisions the user could override; implementer decisions belong in Approach.
-     For each load-bearing assumption that may fail mid-execution, pre-decide the fallback so execution
-     never stalls: "if reality is X, do Y instead", and name where the fallback lands. -->
+<!-- The veto list: decisions a reviewer could want the other way, each with the reason it was taken and
+     the fallback if reality disagrees. Implementer decisions belong in Approach. -->
 
-- **ASSUMPTION**: default taken. If REALITY, do FALLBACK instead.
+- **DECISION**: default taken, because REASON.<br>If REALITY, do FALLBACK instead.<br>
 
 ## As implemented
 
@@ -84,6 +77,6 @@
      commands, moved contracts — with the reason, plus the additions the snippets implied but did not
      spell out. Short and factual; it is the plan's own drift report, and reviewers read it. -->
 
-Everything above landed as written; these are the points where the plan was adjusted while implementing it.
+Everything above landed as written.<br>These are the points where the plan was adjusted while implementing it.<br>
 
-- ADJUSTMENT — why.
+- ADJUSTMENT — why.<br>
