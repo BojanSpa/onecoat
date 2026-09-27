@@ -85,6 +85,11 @@ fn fixture_bytes(relative: &str) -> Vec<u8> {
     std::fs::read(fixture_path(relative)).unwrap()
 }
 
+const PIN_NOTE: &str = "profile \"PowerShell\" pins \"One Half Dark\"";
+const REPOINTED_NOTE: &str = "repointed profile \"PowerShell\" from \"One Half Dark\"";
+const REPOINTED_PAIR_NOTE: &str =
+    "repointed profile \"PowerShell\" from \"onecoat-dark/One Half Dark\"";
+
 fn stdout(output: &Output) -> String {
     String::from_utf8(output.stdout.clone()).unwrap()
 }
@@ -203,7 +208,7 @@ fn use_writes_the_fragment_and_the_settings_file() {
     assert_eq!(
         stdout(&output),
         format!(
-            "wrote {}\nwrote {}\n",
+            "wrote {}\nwrote {}\n{PIN_NOTE}\n",
             fragment.display(),
             settings.display()
         )
@@ -285,7 +290,7 @@ fn a_second_use_neither_rewrites_nor_rebacks_up() {
     assert_eq!(
         stdout(&second),
         format!(
-            "unchanged {}\nunchanged {}\n",
+            "unchanged {}\nunchanged {}\n{PIN_NOTE}\n",
             fragment.display(),
             settings.display()
         )
@@ -375,7 +380,7 @@ fn dry_run_names_the_planned_files_and_the_changed_keys() {
     assert_eq!(
         stdout(&output),
         format!(
-            "would write {}\n  schemes\nwould write {}\n  theme\n  themes\n  profiles.defaults.colorScheme\n",
+            "would write {}\n  schemes\nwould write {}\n  theme\n  themes\n  profiles.defaults.colorScheme\n{PIN_NOTE}\n",
             fragment.display(),
             settings.display()
         )
@@ -401,7 +406,7 @@ fn dry_run_after_an_apply_reports_nothing_to_do() {
     assert_eq!(
         stdout(&output),
         format!(
-            "unchanged {}\nunchanged {}\n",
+            "unchanged {}\nunchanged {}\n{PIN_NOTE}\n",
             fragment.display(),
             settings.display()
         )
@@ -438,7 +443,7 @@ fn targets_limit_the_apply() {
     assert_eq!(
         stdout(&limited),
         format!(
-            "wrote {}\nwrote {}\n",
+            "wrote {}\nwrote {}\n{PIN_NOTE}\n",
             sandbox.fragment().display(),
             settings.display()
         )
@@ -514,5 +519,42 @@ fn writes_stay_inside_the_two_windows_terminal_files() {
     assert_eq!(
         std::fs::read(&settings).unwrap(),
         fixture_bytes("wt/settings-spliced.json")
+    );
+}
+
+#[test]
+fn profile_color_scheme_all_repoints_every_pin() {
+    let sandbox = Sandbox::new();
+    let settings = sandbox.install_settings("wt/settings.json");
+    let fragment = sandbox.fragment();
+
+    let output = sandbox.run(&["use", "nord", "--profile-color-scheme", "all"]);
+    assert_eq!(code(&output), 0, "{}", stderr(&output));
+    assert_eq!(
+        stdout(&output),
+        format!(
+            "wrote {}\nwrote {}\n{REPOINTED_NOTE}\n",
+            fragment.display(),
+            settings.display()
+        )
+    );
+    assert_eq!(
+        std::fs::read(&settings).unwrap(),
+        fixture_bytes("wt/settings-repointed.json")
+    );
+
+    let again = sandbox.run(&["use", "nord", "--profile-color-scheme", "all"]);
+    assert_eq!(code(&again), 0, "{}", stderr(&again));
+    assert_eq!(
+        stdout(&again),
+        format!(
+            "unchanged {}\nunchanged {}\n{REPOINTED_PAIR_NOTE}\n",
+            fragment.display(),
+            settings.display()
+        )
+    );
+    assert_eq!(
+        std::fs::read(&settings).unwrap(),
+        fixture_bytes("wt/settings-repointed.json")
     );
 }

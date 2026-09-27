@@ -11,7 +11,7 @@ Closes R-16, R-17.<br>
 
 ## Facts established on this machine (do not re-derive)
 
-- The live `settings.json` holds three profiles and one pin.<br>The Command Prompt entry pins `Dainty Nord C1 L0`; the other two pin nothing.<br>`profiles.defaults.colorScheme` is `onecoat-dark`, a bare string.<br>
+- The live `settings.json` holds three profiles and one pin.<br>The PowerShell entry — the default profile — pins `Dainty Nord C1 L0`; the other two pin nothing.<br>`profiles.defaults.colorScheme` is `onecoat-dark`, a bare string.<br>
 - The fixture carrying this case is `tests/fixtures/wt/settings.json`.<br>The vendored schema beside it allows a pair for a profile's `colorScheme`.<br>
 - VS2 proved with a byte-exact golden that the CST never rewrites an untouched byte.<br>
 - `jsonc::Edit` has three kinds today: `Set`, `Pair`, and `Element`.<br>None reaches inside the elements of an array, so a fourth kind is needed.<br>
@@ -39,7 +39,7 @@ Closes R-16, R-17.<br>
 1. Gates, all clean:<br>`cargo fmt --all --check`<br>`cargo clippy --workspace --all-targets -- -D warnings`<br>`cargo test --workspace --all-targets`<br>`RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps`<br>
 2. `cargo test --test wt_settings --test cli --test wt_schema` → all pass.<br>
 3. Sandbox run with the fixture copied into a temp `LOCALAPPDATA`:<br>`onecoat use nord --dry-run` names the pinned profile and writes nothing.<br>`onecoat use nord` writes the three keys and names the pin.<br>`onecoat use nord --profile-color-scheme all` repoints, and `settings.json` is byte-equal to the new golden.<br>The same command again says `unchanged` and still names the pin.<br>
-4. Live smoke: copy the live `settings.json` and fragment aside, then hash both.<br>`onecoat use nord` reports the Command Prompt pin.<br>`onecoat use nord --profile-color-scheme all` repoints it to the pair.<br>Windows Terminal then shows that profile following onecoat, which needs your eyes.<br>Restore both files and re-hash.<br>
+4. Live smoke: copy the live `settings.json` and fragment aside, then hash both.<br>`onecoat use nord` reports the PowerShell pin.<br>`onecoat use nord --profile-color-scheme all` repoints it to the pair.<br>Windows Terminal then shows that profile following onecoat, which needs your eyes.<br>Restore both files and re-hash.<br>
 5. Second run of step 3: output unchanged, files byte-identical.<br>
 
 ## Assumptions & contingencies
@@ -54,4 +54,12 @@ Closes R-16, R-17.<br>
 
 Everything above landed as written.<br>These are the points where the plan was adjusted while implementing it.<br>
 
-- ADJUSTMENT — why.<br>
+- The fact above named the Command Prompt entry.<br>The pin belongs to the PowerShell entry, which is also WT's default profile.<br>
+- `jsonc::pinned` returns `Pin { name, scheme }`.<br>A pair joins its sides as `dark/light`.<br>So a second `all` run prints the pair it found, not a bare name.<br>
+- A profile without a `name` is labelled by its `guid`.<br>The fixture and the live file both carry names.<br>
+- `ProfileScheme` lives in `src/render/wt.rs` and derives `clap::ValueEnum`.<br>`plan` keeps depending on `render`, never the reverse.<br>
+- `PlannedWrite` gained `pins: Option<PinReport>`.<br>The fragment write carries `None`, because schemes are not profile pins.<br>
+- `exec` builds the printed lines inside `resolve`.<br>So `preview` and `execute` print the same lines, and the read stays where R-13 put it.<br>
+- The pair fill carries the previous string.<br>A profile pinned to a foreign scheme therefore keeps that name on the light side.<br>The plan's "a light appearance stays on onecoat" holds only when the previous pin was already onecoat.<br>
+- `docs/architecture.md` gained a `wt pins` bullet, and its owned-values row now says the repoint needs the flag.<br>
+- VS2's exact-stdout CLI tests gained the pin line in five assertions.<br>

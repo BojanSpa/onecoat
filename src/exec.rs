@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use crate::Error;
 use crate::jsonc::{self, Key};
 use crate::model::ids::Target;
-use crate::plan::{Absent, Plan, PlannedWrite};
+use crate::plan::{Absent, PinReport, Plan, PlannedWrite};
 
 const TEMP_SUFFIX: &str = ".onecoat.tmp";
 const BACKUP_SUFFIX: &str = ".onecoat.bak";
@@ -21,6 +21,7 @@ pub struct WriteReport {
     pub target: Target,
     pub path: PathBuf,
     pub outcome: WriteOutcome,
+    pub pin_notes: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -31,6 +32,7 @@ pub struct ResolvedWrite {
     pub changed: Vec<Key>,
     pub outcome: WriteOutcome,
     pub backup: Option<PathBuf>,
+    pub pin_notes: Vec<String>,
 }
 
 pub fn resolve(plan: &Plan) -> Result<Vec<ResolvedWrite>, Error> {
@@ -48,6 +50,7 @@ pub fn preview(plan: &Plan) -> Result<Vec<String>, Error> {
         for key in &write.changed {
             lines.push(format!("  {key}"));
         }
+        lines.extend(write.pin_notes);
     }
     Ok(lines)
 }
@@ -60,6 +63,7 @@ pub fn execute(plan: &Plan) -> Result<Vec<WriteReport>, Error> {
                 target: write.target,
                 path: write.path,
                 outcome: WriteOutcome::Unchanged,
+                pin_notes: write.pin_notes,
             });
             continue;
         }
@@ -69,6 +73,7 @@ pub fn execute(plan: &Plan) -> Result<Vec<WriteReport>, Error> {
             target: write.target,
             path: write.path,
             outcome: WriteOutcome::Written,
+            pin_notes: write.pin_notes,
         });
     }
     Ok(reports)
@@ -105,9 +110,12 @@ fn resolve_one(planned: &PlannedWrite) -> Result<ResolvedWrite, Error> {
     let backup = existing
         .is_some()
         .then(|| append_to_file_name(path, BACKUP_SUFFIX));
-    let (bytes, changed) = match &existing {
-        Some(current) => {
-            let source = std::str::from_utf8(current).map_err(|_| not_utf8(path))?;
+    let source = existing
+        .as_deref()
+        .map(|current| std::str::from_utf8(current).map_err(|_| not_utf8(path)))
+        .transpose()?;
+    let (bytes, changed) = match source {
+        Some(source) => {
             let spliced = jsonc::splice(path, source, &planned.edits)?;
             (spliced.text.into_bytes(), spliced.changed)
         }
@@ -123,6 +131,10 @@ fn resolve_one(planned: &PlannedWrite) -> Result<ResolvedWrite, Error> {
             }
         },
     };
+    let pin_notes = match (source, &planned.pins) {
+        (Some(source), Some(report)) => report_pins(path, source, report)?,
+        _ => Vec::new(),
+    };
     let outcome = match &existing {
         Some(current) if *current == bytes => WriteOutcome::Unchanged,
         _ => WriteOutcome::Written,
@@ -134,7 +146,24 @@ fn resolve_one(planned: &PlannedWrite) -> Result<ResolvedWrite, Error> {
         changed,
         outcome,
         backup,
+        pin_notes,
     })
+}
+
+fn report_pins(path: &Path, source: &str, report: &PinReport) -> Result<Vec<String>, Error> {
+    let (key, field) = match report {
+        PinReport::Report { key, field } | PinReport::Repoint { key, field } => (key, field),
+    };
+    let notes = jsonc::pinned(path, source, key, field)?;
+    Ok(notes
+        .into_iter()
+        .map(|pin| match report {
+            PinReport::Report { .. } => format!("profile \"{}\" pins \"{}\"", pin.name, pin.scheme),
+            PinReport::Repoint { .. } => {
+                format!("repointed profile \"{}\" from \"{}\"", pin.name, pin.scheme)
+            }
+        })
+        .collect())
 }
 
 fn replace(write: &ResolvedWrite) -> Result<(), Error> {

@@ -8,6 +8,7 @@ use onecoat::exec::{self, WriteOutcome};
 use onecoat::model::ids::{Appearance, Origin, Slot, Target, ThemeId};
 use onecoat::model::theme::{Theme, Validated};
 use onecoat::plan::Plan;
+use onecoat::render::wt::ProfileScheme;
 use onecoat::targets::Paths;
 use onecoat::themes::ThemeSet;
 
@@ -53,6 +54,13 @@ struct UseArgs {
         help = "Apply only to these targets: wt, herdr, omp (default: all)"
     )]
     targets: Vec<Target>,
+    #[arg(
+        long,
+        value_enum,
+        default_value = "report",
+        help = "Report profiles that pin their own scheme, or `all` to repoint them to the scheme pair"
+    )]
+    profile_color_scheme: ProfileScheme,
 }
 
 fn main() -> ExitCode {
@@ -97,7 +105,7 @@ fn apply(paths: &Paths, args: &UseArgs) -> Result<(), Error> {
         args.targets.clone()
     };
 
-    let plan = Plan::wt(paths, theme)?.limited_to(&targets);
+    let plan = Plan::wt(paths, theme, args.profile_color_scheme)?.limited_to(&targets);
 
     if args.dry_run {
         for line in exec::preview(&plan)? {
@@ -111,6 +119,9 @@ fn apply(paths: &Paths, args: &UseArgs) -> Result<(), Error> {
             };
 
             println!("{verb} {}", report.path.display());
+            for note in &report.pin_notes {
+                println!("{note}");
+            }
         }
     }
 

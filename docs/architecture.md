@@ -32,7 +32,7 @@ Verified on the development machine: Windows Terminal 1.24.11911, Herdr 0.9.1-pr
 | Target | File | Owned values | Reload | Validator |
 | --- | --- | --- | --- | --- |
 | wt | `%LOCALAPPDATA%\Microsoft\Windows Terminal\Fragments\onecoat\schemes.json` | `schemes[]`, upserted by `name`, one element per slot | Windows Terminal reloads when its settings file changes, re-reading fragments | vendored `profiles.schema.json` |
-| wt | `%LOCALAPPDATA%\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json` | root `theme` (light/dark pair), root `themes[]`, `profiles.defaults.colorScheme` (pair), optionally per-profile `colorScheme` | same | same |
+| wt | `%LOCALAPPDATA%\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json` | root `theme` (light/dark pair), root `themes[]`, `profiles.defaults.colorScheme` (pair), per-profile `colorScheme` pins that already exist (repointed only under `--profile-color-scheme all`) | same | same |
 | herdr | `%APPDATA%\herdr\config.toml` | `[theme]` `name`, `auto_switch`, `dark_name`, `light_name`; `[theme.custom]` and its `.dark`/`.light` layers | `herdr server reload-config` | `herdr config check` |
 | omp | `<agent dir>/themes/onecoat-dark.json`, `onecoat-light.json` | every required token | file watcher on the active theme file | vendored token list |
 | omp | `<agent dir>/config.yml` | `theme.dark`, `theme.light` | next launch (values are set once) | `omp config get theme.dark` |
@@ -189,6 +189,7 @@ All three writers share one discipline: build a plan from pure data, then execut
 - wt fragment: `schemes[]` is upserted element by element, matched by `name`, so the fragment holds both slots and every other scheme survives byte for byte; an absent fragment is created from `{}`.
 - wt settings: each owned key — root `theme`, root `themes[]`, `profiles.defaults.colorScheme` — is set through the JSONC CST; an absent `settings.json` fails the apply. A missing key is inserted into its object with that object's own indentation, comma style, and line endings; a key of the wrong type is an error, never a clobber. Comments, key order, and unrelated whitespace are never touched.
 - wt names: the scheme and the window theme are both named `onecoat-<slot>`.
+- wt pins: a per-profile `colorScheme` that exists is reported by name on every apply, and `--profile-color-scheme all` repoints it to the pair; a profile that does not pin is never given the key, because inheritance from `profiles.defaults.colorScheme` is the point.<br>
 - wt pairs: a pair edit writes the assigned side only. The other side keeps whatever it named, and where the key held a bare string that side carries the string over, because a missing side would fall back to a built-in theme or `Campbell` and the appearance would stop following onecoat.
 - herdr: `toml_edit` navigates to `theme`, sets owned values, and creates missing tables; its decoration model preserves comments and blank lines. The result is validated by `herdr config check` before the temp file replaces the original.
 - omp: both slot files are generated wholesale, so no preservation logic is needed; `config.yml` is edited only when a pinned name differs from the current value.

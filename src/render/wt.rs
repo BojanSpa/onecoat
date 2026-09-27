@@ -13,6 +13,15 @@ const THEME_KEY: &str = "theme";
 const THEMES_KEY: &str = "themes";
 const COLOR_SCHEME_KEY: &str = "profiles.defaults.colorScheme";
 
+pub const PROFILES_KEY: &str = "profiles.list";
+pub const COLOR_SCHEME_FIELD: &str = "colorScheme";
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug, clap::ValueEnum)]
+pub enum ProfileScheme {
+    Report,
+    All,
+}
+
 #[allow(non_snake_case)]
 #[derive(Serialize)]
 struct WtScheme {
@@ -128,9 +137,12 @@ pub fn fragment_edits(theme: &Theme<Validated>) -> Result<Vec<Edit>, Error> {
     }])
 }
 
-pub fn settings_edits(theme: &Theme<Validated>) -> Result<Vec<Edit>, Error> {
+pub fn settings_edits(
+    theme: &Theme<Validated>,
+    profile_scheme: ProfileScheme,
+) -> Result<Vec<Edit>, Error> {
     let side = Slot::from(theme.appearance);
-    Ok(vec![
+    let mut edits = vec![
         Edit::Pair {
             key: Key::parse(THEME_KEY),
             side,
@@ -148,7 +160,17 @@ pub fn settings_edits(theme: &Theme<Validated>) -> Result<Vec<Edit>, Error> {
             name: name(theme),
             fill: Fill::FromString,
         },
-    ])
+    ];
+    if profile_scheme == ProfileScheme::All {
+        edits.push(Edit::Repoint {
+            key: Key::parse(PROFILES_KEY),
+            field: COLOR_SCHEME_FIELD.to_owned(),
+            side,
+            name: name(theme),
+            fill: Fill::FromString,
+        });
+    }
+    Ok(edits)
 }
 
 pub fn name(theme: &Theme<Validated>) -> String {

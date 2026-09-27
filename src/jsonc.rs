@@ -2,7 +2,7 @@ use std::fmt;
 use std::path::Path;
 
 use jsonc_parser::ParseOptions;
-use jsonc_parser::cst::{CstInputValue, CstNode, CstObject, CstRootNode};
+use jsonc_parser::cst::{CstInputValue, CstNode, CstObject, CstObjectProp, CstRootNode};
 use jsonc_parser::errors::ParseError;
 use serde_json::Value;
 
@@ -64,14 +64,30 @@ pub enum Edit {
         name: String,
         value: Value,
     },
+    Repoint {
+        key: Key,
+        field: String,
+        side: Slot,
+        name: String,
+        fill: Fill,
+    },
 }
 
 impl Edit {
     pub fn key(&self) -> &Key {
         match self {
-            Self::Set { key, .. } | Self::Pair { key, .. } | Self::Element { key, .. } => key,
+            Self::Set { key, .. }
+            | Self::Pair { key, .. }
+            | Self::Element { key, .. }
+            | Self::Repoint { key, .. } => key,
         }
     }
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct Pin {
+    pub name: String,
+    pub scheme: String,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -148,17 +164,19 @@ fn apply(path: &Path, document: &CstObject, edit: &Edit) -> Result<(), Error> {
             fill,
         } => set_pair(path, document, key, *side, name, *fill),
         Edit::Element { key, name, value } => set_element(path, document, key, name, input(value)),
+        Edit::Repoint {
+            key,
+            field,
+            side,
+            name,
+            fill,
+        } => set_repoint(path, document, key, field, *side, name, *fill),
     }
 }
 
 fn set(path: &Path, document: &CstObject, key: &Key, value: CstInputValue) -> Result<(), Error> {
     let (object, name) = holder(path, document, key)?;
-    match object.get(name) {
-        Some(property) => property.set_value(value),
-        None => {
-            object.append(name, value);
-        }
-    }
+    put(&object, name, value);
     Ok(())
 }
 
@@ -228,6 +246,140 @@ fn set_element(
         }
     }
     Ok(())
+}
+
+fn set_repoint(
+    path: &Path,
+    document: &CstObject,
+    key: &Key,
+    field: &str,
+    side: Slot,
+    name: &str,
+    fill: Fill,
+) -> Result<(), Error> {
+    let Some(location) = locate(document, key) else {
+        return Ok(());
+    };
+    let Some(array) = location.array_value() else {
+        return Err(not_an_array(path, key));
+    };
+    for element in array.elements() {
+        let Some(object) = element.as_object() else {
+            continue;
+        };
+        let Some(property) = object.get(field) else {
+            continue;
+        };
+        let Some(value) = property.value() else {
+            property.set_value(pair(side, name, None));
+            continue;
+        };
+        if let Some(inner) = value.as_object() {
+            put(&inner, side.name(), CstInputValue::String(name.to_owned()));
+            continue;
+        }
+        let Some(previous) = value
+            .as_string_lit()
+            .and_then(|literal| literal.decoded_value().ok())
+        else {
+            return Err(not_a_pair(path, key));
+        };
+        let repointed = match fill {
+            Fill::FromString => pair(side, name, Some(previous.as_str())),
+            Fill::BuiltIn => pair(side, name, None),
+        };
+        property.set_value(repointed);
+    }
+    Ok(())
+}
+
+pub fn pinned(path: &Path, source: &str, key: &Key, field: &str) -> Result<Vec<Pin>, Error> {
+    let root = parse(path, source)?;
+    let Some(document) = root.object_value() else {
+        return Err(not_an_object(path, &Key::root()));
+    };
+    let Some(location) = locate(&document, key) else {
+        return Ok(Vec::new());
+    };
+    let Some(array) = location.array_value() else {
+        return Err(not_an_array(path, key));
+    };
+    let mut pins = Vec::new();
+    for (index, element) in array.elements().iter().enumerate() {
+        let Some(object) = element.as_object() else {
+            continue;
+        };
+        let Some(value) = object.get(field).and_then(|property| property.value()) else {
+            continue;
+        };
+        pins.push(Pin {
+            name: profile_label(&object, index),
+            scheme: pinned_scheme(path, key, &value)?,
+        });
+    }
+    Ok(pins)
+}
+
+fn locate(document: &CstObject, key: &Key) -> Option<CstObjectProp> {
+    let (leaf, owners) = key.segments().split_last()?;
+    let mut object = document.clone();
+    for owner in owners {
+        object = object.get(owner)?.object_value()?;
+    }
+    object.get(leaf)
+}
+
+fn put(object: &CstObject, name: &str, value: CstInputValue) {
+    match object.get(name) {
+        Some(property) => property.set_value(value),
+        None => {
+            object.append(name, value);
+        }
+    }
+}
+
+fn profile_label(object: &CstObject, index: usize) -> String {
+    for name in ["name", "guid"] {
+        let label = object
+            .get(name)
+            .and_then(|property| property.value())
+            .and_then(|value| {
+                value
+                    .as_string_lit()
+                    .and_then(|lit| lit.decoded_value().ok())
+            });
+        if let Some(label) = label {
+            return label;
+        }
+    }
+    format!("#{index}")
+}
+
+fn pinned_scheme(path: &Path, key: &Key, value: &CstNode) -> Result<String, Error> {
+    if let Some(literal) = value.as_string_lit()
+        && let Ok(text) = literal.decoded_value()
+    {
+        return Ok(text);
+    }
+    if let Some(object) = value.as_object() {
+        let sides: Vec<String> = [Slot::Dark, Slot::Light]
+            .into_iter()
+            .filter_map(|side| {
+                object
+                    .get(side.name())
+                    .and_then(|property| property.value())
+                    .and_then(|value| {
+                        value
+                            .as_string_lit()
+                            .and_then(|lit| lit.decoded_value().ok())
+                    })
+            })
+            .collect();
+        if !sides.is_empty() {
+            return Ok(sides.join("/"));
+        }
+    }
+    Err(not_a_pair(path, key))
 }
 
 fn pair(side: Slot, name: &str, previous: Option<&str>) -> CstInputValue {

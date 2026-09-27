@@ -20,6 +20,7 @@ fn one_write_plan(path: PathBuf, absent: Absent) -> Plan {
                 value: json!("dark"),
             }],
             absent,
+            pins: None,
         }],
     }
 }
