@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use serde_json::Value;
 
-use super::{fragment_edits, scheme, settings_edits, window_theme};
+use super::{ProfileScheme, fragment_edits, scheme, settings_edits, window_theme};
 use crate::jsonc::Edit;
 use crate::model::ids::{Origin, Slot};
 use crate::model::palette::{AnsiSlot, Base16Entry};
@@ -159,7 +159,7 @@ fn the_window_theme_follows_the_background_override() {
 #[test]
 fn the_settings_edits_name_the_pair_the_window_theme_and_the_scheme() {
     let theme = theme("nord", crate::themes::BUNDLED[0].1);
-    let edits = settings_edits(&theme).unwrap();
+    let edits = settings_edits(&theme, ProfileScheme::Report).unwrap();
     assert_eq!(edits.len(), 3);
 
     assert_eq!(
@@ -198,4 +198,25 @@ fn the_fragment_edit_upserts_the_scheme_by_name() {
         }
         other => panic!("expected an element edit, got {other:?}"),
     }
+}
+
+#[test]
+fn the_repoint_edit_joins_the_settings_edits_only_under_all() {
+    let theme = theme("nord", crate::themes::BUNDLED[0].1);
+
+    let reported = settings_edits(&theme, ProfileScheme::Report).unwrap();
+    assert_eq!(reported.len(), 3);
+
+    let all = settings_edits(&theme, ProfileScheme::All).unwrap();
+    assert_eq!(all.len(), 4);
+    assert_eq!(
+        all[3],
+        Edit::Repoint {
+            key: crate::jsonc::Key::parse("profiles.list"),
+            field: "colorScheme".to_owned(),
+            side: Slot::Dark,
+            name: "onecoat-dark".to_owned(),
+            fill: crate::jsonc::Fill::FromString,
+        }
+    );
 }

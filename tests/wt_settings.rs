@@ -31,7 +31,11 @@ fn splice_into(source: &str, edits: &[Edit]) -> Splice {
 }
 
 fn settings_edits(set: &ThemeSet) -> Vec<Edit> {
-    wt::settings_edits(nord(set)).unwrap()
+    wt::settings_edits(nord(set), wt::ProfileScheme::Report).unwrap()
+}
+
+fn repoint_edits(set: &ThemeSet) -> Vec<Edit> {
+    wt::settings_edits(nord(set), wt::ProfileScheme::All).unwrap()
 }
 
 fn fragment_edits(set: &ThemeSet) -> Vec<Edit> {
@@ -197,5 +201,50 @@ fn a_key_of_the_wrong_type_is_never_clobbered() {
     assert!(
         matches!(&error, Error::KeyNotLocatable { key, expected, .. } if key.to_string() == "themes" && *expected == "a JSON array"),
         "{error}"
+    );
+}
+
+#[test]
+fn a_repoint_moves_the_pinned_profile_onto_the_scheme_pair() {
+    let set = themes();
+    let spliced = splice_into(&text("settings.json"), &repoint_edits(&set));
+
+    assert_eq!(spliced.text, text("settings-repointed.json"));
+    assert_eq!(
+        spliced.changed,
+        [
+            jsonc::Key::parse("theme"),
+            jsonc::Key::parse("themes"),
+            jsonc::Key::parse("profiles.defaults.colorScheme"),
+            jsonc::Key::parse("profiles.list"),
+        ]
+    );
+}
+
+#[test]
+fn a_second_repoint_is_byte_identical() {
+    let set = themes();
+    let once = splice_into(&text("settings.json"), &repoint_edits(&set));
+    let twice = splice_into(&once.text, &repoint_edits(&set));
+
+    assert_eq!(twice.text, once.text);
+    assert!(twice.changed.is_empty(), "{:?}", twice.changed);
+}
+
+#[test]
+fn the_repoint_leaves_a_foreign_window_theme_alone() {
+    let set = themes();
+    let source = text("settings.json").replace(
+        "\"themes\": []",
+        "\"themes\": [\n        {\n            \"name\": \"mine\",\n            \"tabRow\": {\n                \"background\": \"#202020\"\n            }\n        }\n    ]",
+    );
+    let spliced = splice_into(&source, &repoint_edits(&set));
+
+    assert!(
+        spliced
+            .text
+            .contains("        {\n            \"name\": \"mine\",\n            \"tabRow\": {\n                \"background\": \"#202020\"\n            }\n        },\n"),
+        "the foreign window theme is kept byte for byte:\n{}",
+        spliced.text
     );
 }

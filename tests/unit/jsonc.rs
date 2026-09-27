@@ -2,7 +2,7 @@ use std::path::Path;
 
 use serde_json::json;
 
-use super::{Edit, Fill, Key, NEW_DOCUMENT, Splice, splice, verify};
+use super::{Edit, Fill, Key, NEW_DOCUMENT, Pin, Splice, pinned, splice, verify};
 use crate::Error;
 use crate::model::ids::Slot;
 
@@ -341,4 +341,112 @@ fn another_side_of_a_pair_keeps_the_side_it_does_not_own() {
         spliced.text,
         "{\n  \"theme\": {\n    \"light\": \"light\",\n    \"dark\": \"onecoat-dark\"\n  }\n}\n"
     );
+}
+
+fn pins(source: &str) -> Vec<Pin> {
+    pinned(
+        Path::new("settings.json"),
+        source,
+        &key("profiles.list"),
+        "colorScheme",
+    )
+    .unwrap()
+}
+
+fn repoint(fill: Fill) -> Edit {
+    Edit::Repoint {
+        key: key("profiles.list"),
+        field: "colorScheme".to_owned(),
+        side: Slot::Dark,
+        name: "onecoat-dark".to_owned(),
+        fill,
+    }
+}
+
+const PINNED: &str = "{\n  \"profiles\": {\n    \"list\": [\n      {\n        \"name\": \"Command Prompt\",\n        \"colorScheme\": \"One Half Dark\"\n      },\n      {\n        \"name\": \"Ubuntu\"\n      }\n    ]\n  }\n}\n";
+
+#[test]
+fn a_repoint_moves_only_the_elements_that_pin_a_scheme() {
+    let spliced = splice_ok(PINNED, &[repoint(Fill::FromString)]);
+
+    assert_eq!(
+        spliced.text,
+        "{\n  \"profiles\": {\n    \"list\": [\n      {\n        \"name\": \"Command Prompt\",\n        \"colorScheme\": {\n          \"dark\": \"onecoat-dark\",\n          \"light\": \"One Half Dark\"\n        }\n      },\n      {\n        \"name\": \"Ubuntu\"\n      }\n    ]\n  }\n}\n"
+    );
+    assert_eq!(spliced.changed, [key("profiles.list")]);
+}
+
+#[test]
+fn a_repoint_leaves_the_other_side_of_an_existing_pair_alone() {
+    let source = "{\n  \"profiles\": {\n    \"list\": [\n      {\n        \"name\": \"PowerShell\",\n        \"colorScheme\": {\n          \"dark\": \"mine\",\n          \"light\": \"other\"\n        }\n      }\n    ]\n  }\n}\n";
+    let spliced = splice_ok(source, &[repoint(Fill::FromString)]);
+
+    assert_eq!(
+        spliced.text,
+        "{\n  \"profiles\": {\n    \"list\": [\n      {\n        \"name\": \"PowerShell\",\n        \"colorScheme\": {\n          \"dark\": \"onecoat-dark\",\n          \"light\": \"other\"\n        }\n      }\n    ]\n  }\n}\n"
+    );
+}
+
+#[test]
+fn a_repoint_drops_the_other_side_when_the_fill_is_built_in() {
+    let spliced = splice_ok(PINNED, &[repoint(Fill::BuiltIn)]);
+
+    assert_eq!(
+        spliced.text,
+        "{\n  \"profiles\": {\n    \"list\": [\n      {\n        \"name\": \"Command Prompt\",\n        \"colorScheme\": {\n          \"dark\": \"onecoat-dark\"\n        }\n      },\n      {\n        \"name\": \"Ubuntu\"\n      }\n    ]\n  }\n}\n"
+    );
+}
+
+#[test]
+fn a_repoint_changes_nothing_when_no_element_pins_a_scheme() {
+    let source = "{\n  \"profiles\": {\n    \"list\": [\n      {\n        \"name\": \"Ubuntu\"\n      }\n    ]\n  }\n}\n";
+    let spliced = splice_ok(source, &[repoint(Fill::FromString)]);
+
+    assert_eq!(spliced.text, source);
+    assert_eq!(spliced.changed, []);
+}
+
+#[test]
+fn a_repoint_is_a_no_op_when_the_path_is_absent() {
+    let spliced = splice_ok("{}\n", &[repoint(Fill::FromString)]);
+
+    assert_eq!(spliced.text, "{}\n");
+    assert_eq!(spliced.changed, []);
+}
+
+#[test]
+fn a_repoint_of_a_value_that_is_not_a_pair_is_an_error() {
+    let source = "{\n  \"profiles\": {\n    \"list\": [\n      {\n        \"colorScheme\": 7\n      }\n    ]\n  }\n}\n";
+    let error = splice(
+        Path::new("settings.json"),
+        source,
+        &[repoint(Fill::FromString)],
+    )
+    .unwrap_err();
+
+    assert!(matches!(error, Error::KeyNotLocatable { .. }), "{error}");
+}
+
+#[test]
+fn pins_lists_every_element_that_carries_the_field() {
+    let source = "{\n  \"profiles\": {\n    \"list\": [\n      {\n        \"name\": \"Command Prompt\",\n        \"colorScheme\": \"One Half Dark\"\n      },\n      {\n        \"name\": \"Ubuntu\"\n      },\n      {\n        \"guid\": \"{574e775e}\",\n        \"colorScheme\": {\n          \"dark\": \"onecoat-dark\",\n          \"light\": \"onecoat-light\"\n        }\n      }\n    ]\n  }\n}\n";
+
+    assert_eq!(
+        pins(source),
+        [
+            Pin {
+                name: "Command Prompt".to_owned(),
+                scheme: "One Half Dark".to_owned()
+            },
+            Pin {
+                name: "{574e775e}".to_owned(),
+                scheme: "onecoat-dark/onecoat-light".to_owned()
+            },
+        ]
+    );
+}
+
+#[test]
+fn pins_is_empty_when_the_path_is_absent() {
+    assert_eq!(pins("{}\n"), []);
 }
