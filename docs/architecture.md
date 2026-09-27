@@ -10,7 +10,7 @@ graph LR
   V --> RW["wt renderer"]
   V --> RH["herdr renderer"]
   V --> RO["omp renderer"]
-  RW --> PW["Plan: fragment write<br/>+ 3 JSONC splices"]
+  RW --> PW["Plan: fragment upsert<br/>+ 3 JSONC splices"]
   RH --> PH["Plan: toml_edit edits"]
   RO --> PO["Plan: 2 theme files"]
   PW --> X["Executor<br/>re-read, backup, atomic replace, re-parse"]
@@ -31,7 +31,7 @@ Verified on the development machine: Windows Terminal 1.24.11911, Herdr 0.9.1-pr
 
 | Target | File | Owned values | Reload | Validator |
 | --- | --- | --- | --- | --- |
-| wt | `%LOCALAPPDATA%\Microsoft\Windows Terminal\Fragments\onecoat\schemes.json` | `schemes[]` for both slots | Windows Terminal reloads when its settings file changes, re-reading fragments | vendored `profiles.schema.json` |
+| wt | `%LOCALAPPDATA%\Microsoft\Windows Terminal\Fragments\onecoat\schemes.json` | `schemes[]`, upserted by `name`, one element per slot | Windows Terminal reloads when its settings file changes, re-reading fragments | vendored `profiles.schema.json` |
 | wt | `%LOCALAPPDATA%\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json` | root `theme` (light/dark pair), root `themes[]`, `profiles.defaults.colorScheme` (pair), optionally per-profile `colorScheme` | same | same |
 | herdr | `%APPDATA%\herdr\config.toml` | `[theme]` `name`, `auto_switch`, `dark_name`, `light_name`; `[theme.custom]` and its `.dark`/`.light` layers | `herdr server reload-config` | `herdr config check` |
 | omp | `<agent dir>/themes/onecoat-dark.json`, `onecoat-light.json` | every required token | file watcher on the active theme file | vendored token list |
@@ -57,7 +57,7 @@ src/render/herdr.rs  toml_edit edit plan
 src/render/omp.rs    66-token theme file plan
 src/plan.rs          Plan, PlannedWrite, dry-run rendering
 src/exec.rs          re-read, backup, atomic replace, re-parse, restore
-src/jsonc.rs         tokenizer and byte-range splice for JSONC
+src/jsonc.rs         CST splice over dotted keys, appearance pairs, and named array elements
 src/state.rs         config, state, drift re-derivation
 src/coherence.rs     role equality and perceptual spacing
 src/appearance.rs    registry read + notification
@@ -75,6 +75,7 @@ Domain values are newtypes so a color cannot reach a writer unparsed:<br>
 ```rust
 struct ThemeId(String);      // validated: lowercase, [a-z0-9-], no built-in collision
 struct HexColor { r: u8, g: u8, b: u8 }   // parsed at the boundary; AlphaColor for #rrggbbaa
+struct Key(Vec<String>);     // a dotted path inside a JSONC document; root is the empty path
 enum Slot { Dark, Light }
 enum Target { Wt, Herdr, Omp }
 enum Appearance { Dark, Light }
@@ -93,19 +94,20 @@ Errors are one enum, each variant carrying the file and key needed to act on it:
 ```rust
 enum Error {
     ThemeNotFound { id: ThemeId },
-    ThemeInvalid { path: PathBuf, source: ThemeSchemaError },
-    PaletteIncomplete { missing: Vec<Token> },
-    AppearanceMismatch { background: HexColor, declared: Appearance },
-    ReservedId { id: ThemeId, reason: ReservedReason },
+    EnvMissing { var: &'static str },
     FileUnreadable { path: PathBuf, source: io::Error },
-    FileUnparseable { target: Target, path: PathBuf, line: Option<u32> },
-    KeyNotLocatable { path: PathBuf, key: Key },
-    ExternalCheckFailed { target: Target, output: String },
-    ApplyNotVerified { path: PathBuf, source: Box<Error> },
-    Drift { target: Target, keys: Vec<Key> },
-    Incoherent { pairs: Vec<RoleMismatch> },
+    FileWriteFailed { path: PathBuf, source: io::Error },
+    DirCreateFailed { path: PathBuf, source: io::Error },
+    MissingFile { path: PathBuf },
+    JsoncUnparseable { path: PathBuf, line: usize, column: usize, message: String },
+    KeyNotLocatable { path: PathBuf, key: Key, expected: &'static str },
+    ApplyNotVerified { path: PathBuf, backup: PathBuf, source: Box<Error> },
+    BackupMissing { path: PathBuf, backup: PathBuf },
 }
 ```
+
+The theme-schema variants sit beside these; `ExternalCheckFailed`, `Drift`, and `Incoherent` arrive with the slices that detect them.<br>
+`Expected` says what the key should have been, `Key` is the dotted path this slice spliced, and both are rendered in the message the user sees.<br>
 
 ## Theme schema
 
@@ -183,14 +185,18 @@ The table is the contract; the exhaustive token list for omp lives beside it in 
 
 All three writers share one discipline: build a plan from pure data, then execute it.<br>
 
-- wt fragment: fully generated JSON, so a plain serializer is safe; written only when its bytes change.
-- wt settings: locate the byte range of the value owned for each of `theme`, `themes`, and `profiles.defaults.colorScheme`. Replace that range in place, or insert a new key into the root object with the file's own indentation and comma style. Comments, key order, and unrelated whitespace are never touched. Indentation, line endings, and trailing-newline state are detected from the file and reproduced.
+- wt fragment: `schemes[]` is upserted element by element, matched by `name`, so the fragment holds both slots and every other scheme survives byte for byte; an absent fragment is created from `{}`.
+- wt settings: each owned key — root `theme`, root `themes[]`, `profiles.defaults.colorScheme` — is set through the JSONC CST; an absent `settings.json` fails the apply. A missing key is inserted into its object with that object's own indentation, comma style, and line endings; a key of the wrong type is an error, never a clobber. Comments, key order, and unrelated whitespace are never touched.
+- wt names: the scheme and the window theme are both named `onecoat-<slot>`.
+- wt pairs: a pair edit writes the assigned side only. The other side keeps whatever it named, and where the key held a bare string that side carries the string over, because a missing side would fall back to a built-in theme or `Campbell` and the appearance would stop following onecoat.
 - herdr: `toml_edit` navigates to `theme`, sets owned values, and creates missing tables; its decoration model preserves comments and blank lines. The result is validated by `herdr config check` before the temp file replaces the original.
 - omp: both slot files are generated wholesale, so no preservation logic is needed; `config.yml` is edited only when a pinned name differs from the current value.
 
-Execution per file: re-read, re-plan against the fresh bytes, write the temporary file, back up the original, replace, re-parse the result, and restore the backup if the parse fails.<br>
-The plan is ordered, and the executor stops at the first failure: there is no rollback, so a failed write leaves no backup and the files already written stay written.<br>
-Unchanged plans skip the write entirely, which keeps mtimes and watchers quiet.<br>
+Execution resolves every write against the file on disk before anything is written: the plan holds edits, not bytes, so a missing file that onecoat must not invent, a document that does not parse, and a key of the wrong type all fail the apply with every file still as it was.<br>
+Each write then creates the temporary file, backs up the original, replaces it, and re-parses the result; a result that no longer parses is restored from its backup and fails the apply.<br>
+The plan is ordered — the fragment before `settings.json`, so the scheme a pair names is already there — and the executor stops at the first write failure: there is no rollback, so the files already written stay written.<br>
+Unchanged writes skip the write entirely, which keeps mtimes and watchers quiet.<br>
+A key is reported only when its value differs from the one the file held, so a second apply reports none.<br>
 
 State is written last: `%APPDATA%\onecoat\state.json` holds the slot assignment, the pinned target names, and the expected value for every owned key.<br>
 It is disposable — deleting it turns the next `verify` into a full re-derivation instead of a comparison.<br>
@@ -228,8 +234,9 @@ The regression bar for import is a re-render test: import a fixture, apply it, a
 
 ## Testing
 
-- Fixtures are real files: a commented `settings.json` with a pinned-profile case and a real herdr `config.toml` with its comments intact.
-- Golden tests snapshot whole files and assert the number of changed hunks equals the number of owned keys, so an unintended rewrite fails loudly.
+- Fixtures are real files: a commented `settings.json` with a pinned-profile case, its spliced golden, a CRLF variant that already carries the other appearance, a broken document, and a real herdr `config.toml` with its comments intact.
+- Fixtures are stored byte-exact: `.gitattributes` marks `tests/fixtures/**` as `-text`, so the CRLF variants are still CRLF after a fresh clone.
+- Golden tests snapshot whole files and assert the key list the splice reports, so an unintended rewrite fails loudly.
 - Every writer test is paired with an idempotency test: apply twice, assert byte equality and that the second run performed no writes.
 - Herdr output is validated by spawning `herdr config check` with `APPDATA` pointed at a fixture directory.
 - Windows Terminal output is validated against a vendored `profiles.schema.json` — Windows Terminal 1.24.11911.0's own file, unmodified.
@@ -242,8 +249,10 @@ The regression bar for import is a re-render test: import a fixture, apply it, a
 - One canonical palette, per-target overrides only for values base16 cannot express.
 - Stable target names and both appearance slots written once, so switching a theme rewrites content instead of configuration.
 - Fragments own scheme data; `settings.json` owns only the three keys fragments cannot carry.
+- The fragment is a two-slot store, so applying one slot upserts its scheme instead of regenerating the file; the other slot's scheme is never dropped.
+- A pair keeps the side onecoat did not write: a missing side would fall back to a built-in theme, so a bare string carries over to the other side.
 - Drift is semantic, never byte-based.
 - onecoat never restarts a client; it reloads only what has a documented reload signal.
 - Windows-only for v1, with pure renderers so the other targets' platforms stay reachable.
 
-Milestones live in [`roadmap.md`](./roadmap.md).<br>
+Milestones live in [`roadmap.md`](../work/roadmap.md).<br>

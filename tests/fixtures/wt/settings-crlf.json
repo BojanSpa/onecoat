@@ -1,0 +1,30 @@
+{
+    // these colours stay mine
+    "profiles": 
+    {
+        "defaults": 
+        {
+            "backgroundImageOpacity": 0.5,
+            "colorScheme": "Campbell"
+        }
+    },
+    "schemes": 
+    [
+        {
+            "name": "Campbell",
+            "background": "#0C0C0C",
+            "foreground": "#CCCCCC"
+        }
+    ],
+    "theme": {
+        "light": "light"
+    },
+    "themes": [
+        {
+            "name": "mine",
+            "tabRow": {
+                "background": "#202020"
+            }
+        }
+    ]
+}

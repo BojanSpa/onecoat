@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use jsonc_parser::ParseOptions;
+use jsonc_parser::cst::CstRootNode;
 use serde_json::{Value, json};
 
 fn schema() -> Value {
@@ -8,6 +10,14 @@ fn schema() -> Value {
 
 fn fragment() -> Value {
     serde_json::from_slice(&fixture("nord-dark-fragment.json")).unwrap()
+}
+
+fn settings() -> Value {
+    let source = String::from_utf8(fixture("settings-spliced.json")).unwrap();
+    CstRootNode::parse(&source, &ParseOptions::default())
+        .unwrap()
+        .to_serde_value()
+        .unwrap()
 }
 
 fn fixture(name: &str) -> Vec<u8> {
@@ -57,4 +67,22 @@ fn the_schema_check_rejects_an_alpha_colour() {
 fn the_settings_document_is_only_valid_with_all_three_root_keys() {
     let fragment = fragment();
     assert!(!validator().is_valid(&json!({ "schemes": fragment["schemes"] })));
+}
+
+#[test]
+fn the_spliced_settings_document_satisfies_the_windows_terminal_schema() {
+    let document = settings();
+    let validator = validator();
+    let errors: Vec<String> = validator
+        .iter_errors(&document)
+        .map(|error| format!("{error} at {}", error.instance_path()))
+        .collect();
+    assert!(errors.is_empty(), "{errors:#?}");
+}
+
+#[test]
+fn the_schema_check_rejects_a_window_theme_with_an_unknown_key() {
+    let mut document = settings();
+    document["themes"][0]["window"]["frameColor"] = json!("#0b1018");
+    assert!(!validator().is_valid(&document));
 }

@@ -44,7 +44,7 @@ jobs:
 
       - name: Rendering is pure (N-5)
         run: |
-          $hits = Get-ChildItem -Recurse -File -Include *.rs src/model, src/render, src/rolemap.rs, src/validate.rs |
+          $hits = Get-ChildItem -Recurse -File -Include *.rs src/model, src/render, src/jsonc.rs, src/rolemap.rs, src/validate.rs |
               Select-String -Pattern 'std::fs|std::process|std::env'
           if ($hits) {
               $hits

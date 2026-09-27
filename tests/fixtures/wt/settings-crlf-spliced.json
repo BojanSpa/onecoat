@@ -1,0 +1,49 @@
+{
+    // these colours stay mine
+    "profiles": 
+    {
+        "defaults": 
+        {
+            "backgroundImageOpacity": 0.5,
+            "colorScheme": {
+                "dark": "onecoat-dark",
+                "light": "Campbell"
+            }
+        }
+    },
+    "schemes": 
+    [
+        {
+            "name": "Campbell",
+            "background": "#0C0C0C",
+            "foreground": "#CCCCCC"
+        }
+    ],
+    "theme": {
+        "light": "light",
+        "dark": "onecoat-dark"
+    },
+    "themes": [
+        {
+            "name": "mine",
+            "tabRow": {
+                "background": "#202020"
+            }
+        },
+        {
+            "name": "onecoat-dark",
+            "tab": {
+                "background": "#151b26",
+                "unfocusedBackground": "#0b1018"
+            },
+            "tabRow": {
+                "background": "#151b26",
+                "unfocusedBackground": "#0b1018"
+            },
+            "window": {
+                "applicationTheme": "dark",
+                "frame": "#0b1018"
+            }
+        }
+    ]
+}

@@ -1,5 +1,6 @@
 use std::{io, path::PathBuf};
 
+use crate::jsonc::Key;
 use crate::model::{Appearance, Base16Entry, HexColor, ThemeId};
 
 pub(crate) fn accepted_keys(list: &[&str]) -> String {
@@ -33,6 +34,44 @@ pub enum Error {
         "cannot write `{path}`: {source}; check that the path is writable and not open in another program"
     )]
     FileWriteFailed { path: PathBuf, source: io::Error },
+
+    #[error(
+        "`{path}` does not exist; onecoat only edits this file and never invents one, so run the program that owns it once and retry"
+    )]
+    MissingFile { path: PathBuf },
+
+    #[error(
+        "`{path}` is not valid JSONC: {message} at line {line}, column {column}; fix the syntax at that position"
+    )]
+    JsoncUnparseable {
+        path: PathBuf,
+        line: usize,
+        column: usize,
+        message: String,
+    },
+
+    #[error(
+        "`{path}`: `{key}` is not {expected}; onecoat never overwrites a value it does not own, so fix that key by hand"
+    )]
+    KeyNotLocatable {
+        path: PathBuf,
+        key: Key,
+        expected: &'static str,
+    },
+
+    #[error(
+        "`{path}` does not parse after onecoat wrote it ({source}); the previous content was restored from `{backup}`"
+    )]
+    ApplyNotVerified {
+        path: PathBuf,
+        backup: PathBuf,
+        source: Box<Error>,
+    },
+
+    #[error(
+        "`{path}` does not parse after onecoat wrote it and `{backup}` is missing; nothing was restored, so fix the file and its backup by hand"
+    )]
+    BackupMissing { path: PathBuf, backup: PathBuf },
 
     #[error("cannot create directory `{path}`: {source}; create it by hand or fix its permissions")]
     DirCreateFailed { path: PathBuf, source: io::Error },

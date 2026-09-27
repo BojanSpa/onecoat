@@ -24,6 +24,7 @@ base0F = "#BF616A"
 red = "#ff0000"
 
 [targets.wt]
+background = "#101820"
 cursorColor = "#D8DEE9"
 
 [targets.omp]
