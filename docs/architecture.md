@@ -21,7 +21,7 @@ graph LR
   ST --> VER["verify / doctor<br/>drift + coherence"]
 ```
 
-Rendering is a pure function from a validated theme to a plan of file edits; the executor is the only code that touches a filesystem or spawns a process.<br>
+Rendering is a pure function from a validated theme to a plan of file edits; the executor is the only code that writes to a filesystem or spawns a process.<br>
 `--dry-run` prints the plan that the executor would apply.<br>
 Paths come from `LOCALAPPDATA`, `APPDATA`, and the omp agent directory, resolved once per invocation, so a missing environment variable is reported the same way for every command.<br>
 
@@ -62,9 +62,10 @@ src/plan.rs          Plan, PlannedWrite, dry-run rendering
 src/exec.rs          re-read, backup, atomic replace, re-parse, restore
 src/jsonc.rs         CST splice over dotted keys, appearance pairs, and named array elements
 src/state.rs         config, state, drift re-derivation
+src/doctor.rs        resolved paths, PATH lookup, pins, state age
 src/coherence.rs     role equality and perceptual spacing
 src/appearance.rs    registry read + notification
-src/targets.rs       path resolution, binary/socket discovery
+src/targets.rs       path resolution, socket discovery
 src/error.rs         the error enum and the R-42 message contract
 src/themes.rs        bundled registry, load and shadowing
 themes/nord.toml     the bundled theme source
@@ -212,6 +213,17 @@ A missing file reads as two unassigned slots; a malformed one fails the command 
 The pinned target names and the expected value for every owned key join the document in VS9.<br>
 It is disposable — deleting it turns the next `verify` into a full re-derivation instead of a comparison.<br>
 
+## Inspection
+
+`doctor` reports what onecoat sees on this machine right now, and writes nothing.<br>
+It covers the seven resolved paths, the `herdr` program, the socket, the profile pins, and the state file's age.<br>
+A path row is `present` only when the entry exists with the expected kind — a file for the five file paths, a directory for the two theme directories; every other case is a finding, not an error.<br>
+The program lookup walks `PATH` in order, trying the bare name and then each `PATHEXT` entry, so doctor spawns nothing; no hit prints a `-` path.<br>
+That lookup uses `PATH` and `PATHEXT` alone, so it can differ from the loader's own search order.<br>
+The pins come from the same `jsonc::pinned` read the appliers use, so a settings file without `profiles.list` yields no rows.<br>
+The state file is only stat-ed, never parsed: its age renders as `just now`, `{m}m`, `{h}h`, `{h}h {m}m`, `{d}d`, or `{d}d {h}h`.<br>
+A `settings.json` that does not parse is the usual error and exits 3, and `--json` prints the same report as one document.<br>
+
 ## Drift and coherence
 
 `verify` re-derives every owned value from the canonical theme and compares it against the parsed target file.<br>
@@ -247,7 +259,7 @@ The regression bar for import is a re-render test: import a fixture, apply it, a
 
 - Fixtures are real files: a commented `settings.json` with a pinned-profile case, its spliced golden, a CRLF variant that already carries the other appearance, a broken document, the harness's vendored token list, and a hand-authored omp `config.yml` with its comments intact and its spliced goldens.
 - Fixtures are stored byte-exact: `.gitattributes` marks `tests/fixtures/**` as `-text`, so the CRLF variants are still CRLF after a fresh clone.
-- Repo conventions no compiler checks live in `tools/tidy`, a dev-only workspace member: every module under `src/` stays free of IO and the environment (N-5) except the edges `src/exec.rs`, `src/main.rs`, `src/targets.rs`, and `src/themes.rs`; Rust sources carry no comments except the crate doc at the top of `src/lib.rs`; an item never starts on the line after a closing brace, so items stay separated by one blank line; two consecutive statements take one blank line when either one spans lines, while a single-line `let` stays glued to the block below it; plan files keep the `<br>` and 20-word rules. `cargo test --workspace` fails on any finding.
+- Repo conventions no compiler checks live in `tools/tidy`, a dev-only workspace member: every module under `src/` stays free of IO and the environment (N-5) except the edges `src/doctor.rs`, `src/exec.rs`, `src/main.rs`, `src/targets.rs`, and `src/themes.rs`; Rust sources carry no comments except the crate doc at the top of `src/lib.rs`; an item never starts on the line after a closing brace, so items stay separated by one blank line; two consecutive statements take one blank line when either one spans lines, while a single-line `let` stays glued to the block below it; plan files keep the `<br>` and 20-word rules, except a table row. `cargo test --workspace` fails on any finding.
 - Each check has a passing and a failing fixture tree under `tools/tidy/fixtures/`, so a check that stops firing fails its own test.
 - Golden tests snapshot whole files and assert the key list the splice reports, so an unintended rewrite fails loudly.
 - Every writer test is paired with an idempotency test: apply twice, assert byte equality and that the second run performed no writes.

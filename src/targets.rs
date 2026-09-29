@@ -9,6 +9,8 @@ const AGENT_DIR_VAR: &str = "PI_CODING_AGENT_DIR";
 const HERDR_CONFIG_VAR: &str = "HERDR_CONFIG_PATH";
 const HOME_VAR: &str = "USERPROFILE";
 
+pub const HERDR_PROGRAM: &str = "herdr";
+
 pub struct Paths {
     pub wt_fragment: PathBuf,
     pub wt_settings: PathBuf,
