@@ -144,6 +144,16 @@ fn the_plan_check_ignores_comments_and_code_blocks() {
 }
 
 #[test]
+fn the_plan_check_leaves_a_table_row_alone() {
+    let table = repo("plan-style/passes")
+        .read("work/plans/vs3-thing.md")
+        .expect("the table plan is there");
+
+    assert!(table.contains("| A table row without a break"));
+    assert!(findings("plan-style", "plan-style/passes").is_empty());
+}
+
+#[test]
 fn the_plan_check_skips_a_merged_plan() {
     let exempt = repo("plan-style/passes")
         .read("work/plans/vs1-wt-scheme-fragment.md")

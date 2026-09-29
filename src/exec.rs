@@ -9,11 +9,10 @@ use crate::model::ids::Target;
 use crate::plan::{Absent, Content, PinReport, Plan, PlannedWrite};
 use crate::render::{herdr, omp};
 use crate::state::{Problem, State};
-use crate::targets::Paths;
+use crate::targets::{HERDR_PROGRAM, Paths};
 
 const TEMP_SUFFIX: &str = ".onecoat.tmp";
 const BACKUP_SUFFIX: &str = ".onecoat.bak";
-const HERDR_PROGRAM: &str = "herdr";
 const HERDR_NO_BINARY: &str = "herdr is not on PATH, so the config check was skipped";
 const HERDR_INTERACTIVE: &str = "no herdr server socket, so herdr picks this up at its next launch";
 const HERDR_RELOADED: &str = "reloaded herdr's config";

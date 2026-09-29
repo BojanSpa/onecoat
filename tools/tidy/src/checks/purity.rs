@@ -1,6 +1,7 @@
 use crate::{Check, Diagnostic, Error, Repo};
 
 const IMPURE: &[&str] = &[
+    "src/doctor.rs",
     "src/exec.rs",
     "src/main.rs",
     "src/targets.rs",

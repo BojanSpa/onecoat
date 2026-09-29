@@ -1,5 +1,6 @@
 //! One canonical theme for Windows Terminal, Herdr, and the omp harness.
 
+pub mod doctor;
 pub mod error;
 pub mod exec;
 pub mod jsonc;

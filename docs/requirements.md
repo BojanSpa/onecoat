@@ -56,7 +56,7 @@ Out of scope: remote/SSH Herdr clients; Windows Terminal window themes delivered
 - R-27 Drift is semantic: a reformatted file with the same values is not drift; a hand-edited color is.
 - R-28 `verify` also checks cross-target coherence — the same role must carry the same color in all three targets.
 - R-29 `verify --check` exits 1 on any drift or coherence failure, 0 otherwise.
-- R-30 `doctor` reports resolved paths, detected binaries and sockets, profile pins, and state age, and writes nothing.
+- R-30 `doctor` reports resolved paths, detected binaries and sockets, profile pins, and state age, and writes nothing. Verified by: CLI tests over missing entries, a found program, a pin, a state age, and a broken settings file.
 - R-31 `use` and `watch` accept `--dry-run`, which prints planned writes and a key-level diff without touching the disk.
 - R-32 Read commands accept `--json` and print machine-readable output on stdout.
 

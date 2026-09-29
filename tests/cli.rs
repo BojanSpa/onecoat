@@ -25,13 +25,18 @@ impl Sandbox {
             .env("LOCALAPPDATA", self.root.path())
             .env("APPDATA", self.root.path())
             .env("PI_CODING_AGENT_DIR", self.agent())
-            .env("PATH", self.root.path().join("no-programs"))
+            .env("PATH", self.programs())
+            .env("PATHEXT", ".COM;.EXE;.BAT;.CMD")
             .output()
             .unwrap()
     }
 
     fn root(&self) -> &Path {
         self.root.path()
+    }
+
+    fn programs(&self) -> PathBuf {
+        self.root.path().join("programs")
     }
 
     fn agent(&self) -> PathBuf {
@@ -162,6 +167,30 @@ fn tree(root: &Path) -> Vec<String> {
     walk(root, root, &mut found);
     found.sort();
     found
+}
+
+fn expected_table(rows: &[Vec<&str>]) -> String {
+    let widths: Vec<usize> = (0..4)
+        .map(|index| {
+            rows.iter()
+                .map(|row| row[index].chars().count())
+                .max()
+                .unwrap_or(0)
+        })
+        .collect();
+
+    rows.iter()
+        .map(|row| {
+            row.iter()
+                .zip(&widths)
+                .map(|(cell, width)| format!("{cell:<width$}"))
+                .collect::<Vec<_>>()
+                .join(" ")
+                .trim_end()
+                .to_owned()
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 #[test]
@@ -1058,4 +1087,227 @@ fn a_text_override_on_an_omp_token_fails_the_apply() {
     assert!(message.contains(&theme.display().to_string()), "{message}");
     assert!(message.contains("targets.omp.text"), "{message}");
     assert!(message.contains("#rrggbb"), "{message}");
+}
+
+#[test]
+fn doctor_reports_the_paths_and_the_program() {
+    let sandbox = Sandbox::new();
+    let herdr_config = sandbox.herdr_config();
+    let before = tree(sandbox.root());
+    let stamp_before = stamp(&herdr_config);
+
+    let output = sandbox.run(&["doctor"]);
+    assert_eq!(code(&output), 0, "{}", stderr(&output));
+    assert!(output.stderr.is_empty(), "{}", stderr(&output));
+
+    let fragment = sandbox.fragment().display().to_string();
+    let settings = sandbox.settings().display().to_string();
+    let config = herdr_config.display().to_string();
+    let omp_themes = sandbox.agent().join("themes").display().to_string();
+    let omp_config = sandbox.omp_config().display().to_string();
+    let user_themes = sandbox.themes().display().to_string();
+    let state = sandbox.state().display().to_string();
+
+    let socket = sandbox
+        .root()
+        .join("herdr")
+        .join("herdr.sock")
+        .display()
+        .to_string();
+
+    let expected = expected_table(&[
+        vec!["kind", "name", "path", "status"],
+        vec!["path", "wt fragment", &fragment, "missing"],
+        vec!["path", "wt settings", &settings, "missing"],
+        vec!["path", "herdr config", &config, "present"],
+        vec!["path", "omp themes", &omp_themes, "missing"],
+        vec!["path", "omp config", &omp_config, "missing"],
+        vec!["path", "user themes", &user_themes, "missing"],
+        vec!["path", "state", &state, "missing"],
+        vec!["binary", "herdr", "-", "missing"],
+        vec!["socket", "herdr", &socket, "missing"],
+        vec!["state", "age", "-", "-"],
+    ]);
+
+    assert_eq!(stdout(&output), format!("{expected}\n"));
+
+    assert_eq!(tree(sandbox.root()), before, "doctor writes nothing");
+    assert_eq!(stamp(&herdr_config), stamp_before);
+}
+
+#[test]
+fn doctor_json_names_each_section() {
+    let sandbox = Sandbox::new();
+    let output = sandbox.run(&["doctor", "--json"]);
+    assert_eq!(code(&output), 0, "{}", stderr(&output));
+    assert!(output.stderr.is_empty(), "{}", stderr(&output));
+
+    let parsed: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+
+    let names: Vec<&str> = parsed["paths"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| row["name"].as_str().unwrap())
+        .collect();
+
+    assert_eq!(
+        names,
+        [
+            "wt fragment",
+            "wt settings",
+            "herdr config",
+            "omp themes",
+            "omp config",
+            "user themes",
+            "state"
+        ]
+    );
+
+    for row in parsed["paths"].as_array().unwrap() {
+        assert!(row["path"].is_string(), "{row}");
+        assert!(row["present"].is_boolean(), "{row}");
+    }
+
+    assert_eq!(
+        parsed["binaries"],
+        serde_json::json!([{"name": "herdr", "found": false, "path": null}])
+    );
+
+    let socket = sandbox
+        .root()
+        .join("herdr")
+        .join("herdr.sock")
+        .display()
+        .to_string();
+
+    assert_eq!(
+        parsed["sockets"],
+        serde_json::json!([{"name": "herdr", "path": socket, "present": false}])
+    );
+
+    assert!(parsed["pins"].as_array().unwrap().is_empty(), "{parsed}");
+    assert_eq!(parsed["state"]["age_seconds"], serde_json::Value::Null);
+}
+
+#[test]
+fn doctor_reports_a_pin_and_the_state_age() {
+    let sandbox = Sandbox::new();
+    sandbox.install_settings("wt/settings.json");
+    sandbox.install_config("omp/config.yml");
+
+    let applied = sandbox.run(&["use", "nord"]);
+    assert_eq!(code(&applied), 0, "{}", stderr(&applied));
+
+    let output = sandbox.run(&["doctor"]);
+    assert_eq!(code(&output), 0, "{}", stderr(&output));
+
+    let text = stdout(&output);
+    let pin = text.lines().find(|line| line.starts_with("pin")).unwrap();
+
+    assert!(pin.contains("PowerShell"), "{pin}");
+    assert!(pin.contains("One Half Dark"), "{pin}");
+
+    assert!(
+        pin.contains(&sandbox.settings().display().to_string()),
+        "{pin}"
+    );
+
+    let age = text.lines().find(|line| line.starts_with("state")).unwrap();
+
+    assert!(age.ends_with("just now"), "{age}");
+
+    let machine = sandbox.run(&["doctor", "--json"]);
+    let parsed: serde_json::Value = serde_json::from_str(&stdout(&machine)).unwrap();
+
+    assert_eq!(
+        parsed["pins"],
+        serde_json::json!([{"profile": "PowerShell", "scheme": "One Half Dark"}])
+    );
+
+    let seconds = parsed["state"]["age_seconds"].as_u64().unwrap();
+
+    assert!(seconds < 60, "{seconds}");
+}
+
+#[test]
+fn doctor_finds_a_program_on_path() {
+    let sandbox = Sandbox::new();
+    let programs = sandbox.programs();
+    std::fs::create_dir_all(&programs).unwrap();
+    let herdr = programs.join("herdr.EXE");
+    std::fs::write(&herdr, "").unwrap();
+
+    let output = sandbox.run(&["doctor"]);
+    assert_eq!(code(&output), 0, "{}", stderr(&output));
+
+    let text = stdout(&output);
+
+    let binary = text
+        .lines()
+        .find(|line| line.starts_with("binary"))
+        .unwrap();
+
+    assert!(binary.contains("found"), "{binary}");
+    assert!(binary.contains(&herdr.display().to_string()), "{binary}");
+
+    let machine = sandbox.run(&["doctor", "--json"]);
+    let parsed: serde_json::Value = serde_json::from_str(&stdout(&machine)).unwrap();
+
+    assert_eq!(
+        parsed["binaries"],
+        serde_json::json!([{
+            "name": "herdr",
+            "found": true,
+            "path": herdr.display().to_string(),
+        }])
+    );
+}
+
+#[test]
+fn doctor_reports_a_present_socket() {
+    let sandbox = Sandbox::new();
+    let socket = sandbox.root().join("herdr").join("herdr.sock");
+    std::fs::write(&socket, "").unwrap();
+
+    let output = sandbox.run(&["doctor"]);
+    assert_eq!(code(&output), 0, "{}", stderr(&output));
+
+    let text = stdout(&output);
+
+    let row = text
+        .lines()
+        .find(|line| line.starts_with("socket"))
+        .unwrap();
+
+    assert!(row.contains("present"), "{row}");
+    assert!(row.contains(&socket.display().to_string()), "{row}");
+}
+
+#[test]
+fn doctor_fails_on_a_broken_settings_file() {
+    let sandbox = Sandbox::new();
+    let settings = sandbox.install_settings("wt/settings-broken.json");
+    let before = tree(sandbox.root());
+    for args in [vec!["doctor"], vec!["doctor", "--json"]] {
+        let output = sandbox.run(&args);
+        assert_eq!(code(&output), 3, "args {args:?}");
+        assert!(stdout(&output).is_empty(), "args {args:?}");
+
+        let message = stderr(&output);
+
+        assert!(
+            message.contains(&settings.display().to_string()),
+            "{message}"
+        );
+
+        assert!(message.contains("line 9"), "{message}");
+    }
+
+    assert_eq!(
+        std::fs::read(&settings).unwrap(),
+        fixture_bytes("wt/settings-broken.json")
+    );
+
+    assert_eq!(tree(sandbox.root()), before);
 }

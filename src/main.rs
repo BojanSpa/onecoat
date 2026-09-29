@@ -4,6 +4,7 @@ use clap::{Args, Parser, Subcommand};
 use serde::Serialize;
 
 use onecoat::Error;
+use onecoat::doctor;
 use onecoat::exec::{self, WriteOutcome};
 use onecoat::model::ids::{Appearance, Origin, Slot, Target, ThemeId};
 use onecoat::model::theme::{Theme, Validated};
@@ -33,6 +34,10 @@ enum Command {
     Use(UseArgs),
     #[command(about = "Print the assigned theme per slot and the targets last applied")]
     Current(ReadArgs),
+    #[command(
+        about = "Report the resolved paths, the herdr program, the socket, the profile pins, and the state age"
+    )]
+    Doctor(ReadArgs),
 }
 
 #[derive(Args)]
@@ -88,6 +93,7 @@ fn run(cli: Cli) -> Result<(), Error> {
         Command::List(args) => list(&paths, args),
         Command::Use(args) => apply(&paths, &args),
         Command::Current(args) => current(&paths, args),
+        Command::Doctor(args) => doctor(&paths, args),
     }
 }
 
@@ -156,6 +162,17 @@ fn current(paths: &Paths, args: ReadArgs) -> Result<(), Error> {
         print!("{}", state.render()?);
     } else {
         print_current(&state);
+    }
+
+    Ok(())
+}
+
+fn doctor(paths: &Paths, args: ReadArgs) -> Result<(), Error> {
+    let report = doctor::probe(paths)?;
+    if args.json {
+        println!("{}", report.json()?);
+    } else {
+        println!("{}", report.table());
     }
 
     Ok(())

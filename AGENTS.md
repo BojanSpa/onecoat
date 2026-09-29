@@ -24,7 +24,7 @@
 
 - Copy `work/plans/_template.md` to `work/plans/vs<N>-<slug>.md` when the slice starts, and commit the plan with the slice.
 - Read the `plain-lang` skill (`skill://plain-lang`) before writing a plan.
-- Keep every plan sentence under 20 words, and end each sentence with an explicit `<br>`.
+- Keep every plan sentence under 20 words, and end each sentence with an explicit `<br>`, except a table row.
 - A plan is the veto list, not the design document: pin the decisions a reviewer could veto and the facts that cost time to re-derive, not the signatures, schema paths, and API shapes the implementer will look up.
 - Keep a plan under a page; a longer plan means the slice is too big or the plan is repeating lookups.
 - The style rules cover plans being written or edited; merged plans are not rewritten for style alone.
