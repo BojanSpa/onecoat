@@ -38,7 +38,8 @@ fn violations(check: &'static str, source: &Source) -> Vec<Diagnostic> {
             continue;
         }
 
-        if fenced || trimmed.is_empty() || trimmed.starts_with('#') {
+        let table_row = trimmed.starts_with('|');
+        if fenced || trimmed.is_empty() || trimmed.starts_with('#') || table_row {
             continue;
         }
 
