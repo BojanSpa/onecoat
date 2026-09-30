@@ -26,15 +26,16 @@ Working today:
 - The same command writes the applied slot's omp theme file under the omp agent directory (`PI_CODING_AGENT_DIR`, or `%USERPROFILE%\.omp\agent`) and pins that file's name in the agent directory's `config.yml`. The pin is written once and later applies rewrite only the file, which omp reads when a session starts, so a new session picks up a change.
 - The same command writes the `[theme]` block in `%APPDATA%\herdr\config.toml` with a TOML-preserving edit: the base theme, both slot names, the shared accents, and the applied slot's surface layer. The candidate is checked with `herdr config check` before it replaces the file, and a running herdr server is asked to reload.
 - `onecoat current` prints the theme assigned to each slot and the targets the last apply wrote.
+- `onecoat verify` re-derives the values onecoat owns from the assigned themes and compares them with the files on disk. Drift is reported per target, slot, and key; a reformatted file is not drift, and `--check` exits 1 when any value drifted. `--json` prints the same report for scripts.
 - `onecoat doctor` reports what onecoat sees right now and writes nothing: the resolved target paths, whether the `herdr` program is on `PATH` and its socket exists, the profiles that pin their own scheme, and how old the state file is. `--json` prints the same report for scripts.
 - `--dry-run` prints the planned writes and the keys they change. `--targets` limits an apply to the named targets.
 - One theme ships in the binary, `nord`. Your themes go in `%APPDATA%\onecoat\themes\*.toml` and can shadow a bundled theme with the same id.
 
 Not built yet:
 
-- The `verify`, `watch`, `import`, and `validate` commands.
+- The `watch`, `import`, and `validate` commands.
 
-[`work/roadmap.md`](work/roadmap.md) tracks the remaining slices, from VS9 on.
+[`work/roadmap.md`](work/roadmap.md) tracks the remaining slices, from VS10 on.
 
 ## Try it
 

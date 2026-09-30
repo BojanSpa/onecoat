@@ -260,6 +260,16 @@ pub fn read_state(path: &Path) -> Result<State, Error> {
     State::parse(source).map_err(|problem| state_error(path, problem))
 }
 
+pub fn read_source(path: &Path) -> Result<Option<String>, Error> {
+    let Some(bytes) = read(path)? else {
+        return Ok(None);
+    };
+
+    std::str::from_utf8(&bytes)
+        .map(|source| Some(source.to_owned()))
+        .map_err(|_| not_utf8(path))
+}
+
 pub fn write_state(path: &Path, state: &State) -> Result<(), Error> {
     let text = state.render()?;
     if read(path)?.as_deref() == Some(text.as_bytes()) {

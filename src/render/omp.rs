@@ -309,6 +309,18 @@ pub fn theme_file(theme: &Theme<Validated>, slot: Slot) -> Result<String, Error>
     Ok(text)
 }
 
+pub fn config_value(path: &Path, source: &str, side: Slot) -> Result<Option<String>, Error> {
+    let lines: Vec<String> = source.split_inclusive('\n').map(str::to_owned).collect();
+
+    let Some(header) = theme_header(&lines) else {
+        return Ok(None);
+    };
+
+    check_mapping(path, &lines[header])?;
+
+    Ok(child_line(&lines, header, key_of(side)).and_then(|at| current_value(&lines[at])))
+}
+
 pub fn splice_config(path: &Path, source: &str, edits: &[ConfigEdit]) -> Result<Splice, Error> {
     let eol = if source.contains("\r\n") {
         "\r\n"

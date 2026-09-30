@@ -164,13 +164,42 @@ pub fn edits(theme: &Theme<Validated>, slot: Slot) -> Result<Vec<Edit>, Error> {
     Ok(edits)
 }
 
-pub fn splice(path: &Path, source: &str, edits: &[Edit]) -> Result<Splice, Error> {
-    let mut document = source
+pub fn parse(path: &Path, source: &str) -> Result<DocumentMut, Error> {
+    source
         .parse::<DocumentMut>()
         .map_err(|source| Error::TomlUnparseable {
             path: path.to_path_buf(),
             source: Box::new(source),
-        })?;
+        })
+}
+
+pub fn value(document: &DocumentMut, path: &[String]) -> Option<serde_json::Value> {
+    let (leaf, owners) = path.split_last()?;
+
+    let mut table = document.as_table();
+    for owner in owners {
+        table = table.get(owner)?.as_table()?;
+    }
+
+    table.get(leaf).map(to_json)
+}
+
+pub fn is_shared(edit: &Edit) -> bool {
+    !matches!(
+        edit.path.as_slice(),
+        [theme, custom, side, ..]
+            if theme == THEME_KEY && custom == CUSTOM_KEY && is_slot(side)
+    )
+}
+
+fn is_slot(name: &str) -> bool {
+    [Slot::Dark, Slot::Light]
+        .into_iter()
+        .any(|slot| slot.name() == name)
+}
+
+pub fn splice(path: &Path, source: &str, edits: &[Edit]) -> Result<Splice, Error> {
+    let mut document = parse(path, source)?;
 
     let mut changed = Vec::new();
     for edit in edits {
@@ -306,6 +335,46 @@ fn end_of_lines(source: &str, rendered: &str) -> String {
     }
 
     rendered.replace("\r\n", "\n").replace('\n', "\r\n")
+}
+
+fn to_json(item: &Item) -> serde_json::Value {
+    match item {
+        Item::Value(value) => scalar_json(value),
+        Item::Table(table) => table_json(table),
+        Item::ArrayOfTables(array) => {
+            serde_json::Value::Array(array.iter().map(table_json).collect())
+        }
+        Item::None => serde_json::Value::Null,
+    }
+}
+
+fn table_json(table: &Table) -> serde_json::Value {
+    serde_json::Value::Object(
+        table
+            .iter()
+            .map(|(name, item)| (name.to_owned(), to_json(item)))
+            .collect(),
+    )
+}
+
+fn scalar_json(value: &TomlValue) -> serde_json::Value {
+    match value {
+        TomlValue::String(text) => serde_json::Value::String(text.value().clone()),
+        TomlValue::Integer(number) => serde_json::Value::Number((*number.value()).into()),
+        TomlValue::Float(number) => serde_json::Number::from_f64(*number.value())
+            .map_or(serde_json::Value::Null, serde_json::Value::Number),
+        TomlValue::Boolean(flag) => serde_json::Value::Bool(*flag.value()),
+        TomlValue::Datetime(datetime) => serde_json::Value::String(datetime.value().to_string()),
+        TomlValue::Array(items) => {
+            serde_json::Value::Array(items.iter().map(scalar_json).collect())
+        }
+        TomlValue::InlineTable(table) => serde_json::Value::Object(
+            table
+                .iter()
+                .map(|(name, value)| (name.to_owned(), scalar_json(value)))
+                .collect(),
+        ),
+    }
 }
 
 #[cfg(test)]
