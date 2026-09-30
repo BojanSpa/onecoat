@@ -34,8 +34,8 @@ Each requirement ID appears once, on the slice that completes it. An earlier sli
 | Done | VS | Slice | Deliverable | Closes |
 | --- | --- | --- | --- | --- |
 | [x] | VS8 | `doctor` | Reports resolved paths, detected binaries and sockets, profile pins, and state age, and writes nothing | R-30 |
-| [x] | VS9 | `verify-drift` | Re-derives the artifacts and compares them with the files on disk, reports drift per target with the offending keys, treats reformatting as no drift, and exits 1 from `--check` on any drift or coherence failure | R-26, R-27, R-29 |
-| [ ] | VS10 | `validate-coherence` | Adds the `validate` command, checks ΔE00 spacing between surfaces, and compares roles across targets | R-4, R-28 |
+| [x] | VS9 | `verify-drift` | Re-derives the artifacts and compares them with the files on disk, reports drift per target with the offending keys, treats reformatting as no drift, and exits 1 from `--check` on any drift | R-26, R-27, R-29 |
+| [ ] | VS10 | `validate-coherence` | Adds the `validate` command and checks ΔE00 spacing between a palette's surfaces | R-4 |
 | [ ] | VS11 | `appearance-watch` | Watches the registry for appearance changes, applies the matching slot, repairs drift under `--repair`, and proves both pairs per target | R-37, R-38, R-39 |
 
 ## M4: Import and packaging

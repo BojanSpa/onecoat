@@ -11,13 +11,13 @@
 - **apply** — render, write, and reload the selected targets.
 - **state** — what onecoat last wrote, per slot and target.
 - **drift** — an owned value in a target file no longer matches the theme it came from.
-- **coherence** — role-equivalent colors across targets agreeing, and a palette's own surfaces staying perceptually distinct.
+- **coherence** — a palette's own surfaces staying perceptually distinct, so a raised panel reads as the same surface raised.
 
 ## Scope
 
 In scope: the three targets on a Windows host; theme definition, application, verification, and import of existing colors; following OS appearance change.<br>
 
-Out of scope: remote/SSH Herdr clients; Windows Terminal window themes delivered by fragments (the format forbids it); OS accent color, PowerShell profile theming, VS Code, or any fourth target; editing omp's built-in themes; theme marketplaces or download.<br>
+Out of scope: remote/SSH Herdr clients; Windows Terminal window themes delivered by fragments (the format forbids it); OS accent color, PowerShell profile theming, VS Code, or any fourth target; editing omp's built-in themes; theme marketplaces or download; a runtime cross-target coherence check, because the renderers share one palette and the committed writer fixtures pin each mapping.<br>
 
 ## Theme definition
 
@@ -54,7 +54,6 @@ Out of scope: remote/SSH Herdr clients; Windows Terminal window themes delivered
 - R-25 `current` prints the assigned theme per slot and the targets last applied, from onecoat's state. Verified by: CLI test over a missing, a recorded, and a malformed state.
 - R-26 `verify` re-derives the expected artifacts from the canonical themes and compares them against the current files of every target onecoat owns; drift is reported per target with the offending keys. Verified by: CLI tests over an edited fragment color, a removed owned key, a shadowed theme, and an untouched sandbox.
 - R-27 Drift is semantic: a reformatted file with the same values is not drift; a hand-edited color is. Verified by: CLI tests over a reformatted omp theme file and an added herdr comment line.
-- R-28 `verify` also checks cross-target coherence — the same role must carry the same color in all three targets.
 - R-29 `verify --check` exits 1 on any drift, 0 otherwise. Verified by: CLI tests over a clean apply, a drifted fragment, an edited herdr theme name, and a target a narrowed apply skipped.
 - R-30 `doctor` reports resolved paths, detected binaries and sockets, profile pins, and state age, and writes nothing. Verified by: CLI tests over missing entries, a found program, a pin, a state age, and a broken settings file.
 - R-31 `use` and `watch` accept `--dry-run`, which prints planned writes and a key-level diff without touching the disk.

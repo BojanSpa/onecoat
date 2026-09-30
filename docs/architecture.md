@@ -18,7 +18,7 @@ graph LR
   PO --> X
   X --> S["Reload signals<br/>WT auto, herdr server, omp next launch"]
   X --> ST["state.json"]
-  ST --> VER["verify / doctor<br/>drift + coherence"]
+  ST --> VER["verify / doctor<br/>drift + inspection"]
 ```
 
 Rendering is a pure function from a validated theme to a plan of file edits; the executor is the only code that writes to a filesystem or spawns a process.<br>
@@ -64,7 +64,7 @@ src/jsonc.rs         CST splice over dotted keys, appearance pairs, and named ar
 src/state.rs         slot assignment and applied targets
 src/doctor.rs        resolved paths, PATH lookup, pins, state age
 src/verify.rs        owned keys, drift comparison, report and exit
-src/coherence.rs     role equality and perceptual spacing
+src/coherence.rs     perceptual spacing between a palette's surfaces
 src/appearance.rs    registry read + notification
 src/targets.rs       path resolution, socket discovery
 src/error.rs         the error enum and the R-42 message contract
@@ -244,10 +244,9 @@ An absent file that onecoat may create reports every owned key as missing; an ab
 A file that does not parse is reported as an error, not drift.<br>
 `--check` exits 1 on any finding and 0 otherwise; without it a finding still exits 0.<br>
 
-Coherence has two independent checks:<br>
-
-- Cross-target equality: role equivalence is guaranteed by construction, so `verify` is asserting the writer did not lie — `base00` reaches the terminal background, herdr panel, and omp tool frame identically.
-- Palette spacing: `validate` measures ΔE00 between `base00`, `base01`, and `base02`. Below 2.0 the layers are indistinguishable and the theme is rejected under `--strict`; above 8.0 the surface reads as a separate panel rather than the same surface raised.
+The one coherence check is palette spacing.<br>
+`validate` measures ΔE00 between `base00`, `base01`, and `base02`.<br>Below 2.0 the layers are indistinguishable and the theme is rejected under `--strict`; above 8.0 the surface reads as a separate panel rather than the same surface raised.<br>
+Cross-target equality is not a runtime check.<br>Every renderer reads the same `Palette` off the validated theme, so a role reaches all three targets from one source.<br>Each writer's mapping is pinned by its committed fixture, so a changed mapping shows up as a fixture diff, not as drift.<br>
 
 ## Appearance automation
 
