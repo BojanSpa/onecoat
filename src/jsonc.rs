@@ -21,7 +21,7 @@ impl Key {
         Self(Vec::new())
     }
 
-    fn segments(&self) -> &[String] {
+    pub(crate) fn segments(&self) -> &[String] {
         &self.0
     }
 
@@ -29,7 +29,7 @@ impl Key {
         Self(self.0[..length].to_vec())
     }
 
-    fn join(&self, segment: &str) -> Self {
+    pub(crate) fn join(&self, segment: &str) -> Self {
         let mut segments = self.0.clone();
         segments.push(segment.to_owned());
         Self(segments)
@@ -128,6 +128,36 @@ pub fn splice(path: &Path, source: &str, edits: &[Edit]) -> Result<Splice, Error
 
 pub fn verify(path: &Path, source: &str) -> Result<(), Error> {
     parse(path, source).map(|_| ())
+}
+
+pub fn value(path: &Path, source: &str, key: &Key) -> Result<Option<Value>, Error> {
+    let root = parse(path, source)?;
+
+    let Some(document) = root.object_value() else {
+        return Err(not_an_object(path, &Key::root()));
+    };
+
+    let Some((first, rest)) = key.segments().split_first() else {
+        return Ok(root.to_serde_value());
+    };
+
+    let mut node = document.get(first).and_then(|property| property.value());
+    for segment in rest {
+        node = node.and_then(|node| descend(node, segment));
+    }
+
+    Ok(node.and_then(|node| node.to_serde_value()))
+}
+
+fn descend(node: CstNode, name: &str) -> Option<CstNode> {
+    match node.as_object() {
+        Some(object) => object.get(name)?.value(),
+        None => node
+            .as_array()?
+            .elements()
+            .into_iter()
+            .find(|element| element_name(element).as_deref() == Some(name)),
+    }
 }
 
 fn parse(path: &Path, source: &str) -> Result<CstRootNode, Error> {

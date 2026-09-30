@@ -146,6 +146,10 @@ fn code(output: &Output) -> i32 {
     output.status.code().unwrap()
 }
 
+fn cells(line: &str) -> Vec<&str> {
+    line.split_whitespace().collect()
+}
+
 fn stamp(path: &Path) -> (u64, SystemTime) {
     let metadata = std::fs::metadata(path).unwrap();
     (metadata.len(), metadata.modified().unwrap())
@@ -1087,6 +1091,346 @@ fn a_text_override_on_an_omp_token_fails_the_apply() {
     assert!(message.contains(&theme.display().to_string()), "{message}");
     assert!(message.contains("targets.omp.text"), "{message}");
     assert!(message.contains("#rrggbb"), "{message}");
+}
+
+#[test]
+fn verify_reports_no_drift_after_an_apply() {
+    let sandbox = Sandbox::new();
+    sandbox.install_settings("wt/settings.json");
+    sandbox.install_config("omp/config.yml");
+
+    let applied = sandbox.run(&["use", "nord"]);
+    assert_eq!(code(&applied), 0, "{}", stderr(&applied));
+
+    let before = tree(sandbox.root());
+
+    let stamps = [
+        stamp(&sandbox.fragment()),
+        stamp(&sandbox.settings()),
+        stamp(&sandbox.herdr_config()),
+        stamp(&sandbox.omp_theme("dark")),
+        stamp(&sandbox.omp_config()),
+        stamp(&sandbox.state()),
+    ];
+
+    let output = sandbox.run(&["verify"]);
+    assert_eq!(code(&output), 0, "{}", stderr(&output));
+    assert_eq!(stdout(&output), "no drift\n");
+    assert!(output.stderr.is_empty(), "{}", stderr(&output));
+
+    let machine = sandbox.run(&["verify", "--json"]);
+    assert_eq!(code(&machine), 0, "{}", stderr(&machine));
+    assert_eq!(stdout(&machine), "[]\n");
+
+    assert_eq!(tree(sandbox.root()), before, "verify writes nothing");
+
+    assert_eq!(
+        [
+            stamp(&sandbox.fragment()),
+            stamp(&sandbox.settings()),
+            stamp(&sandbox.herdr_config()),
+            stamp(&sandbox.omp_theme("dark")),
+            stamp(&sandbox.omp_config()),
+            stamp(&sandbox.state()),
+        ],
+        stamps
+    );
+}
+
+#[test]
+fn verify_reports_an_edited_fragment_colour_and_check_fails() {
+    let sandbox = Sandbox::new();
+    sandbox.install_settings("wt/settings.json");
+    sandbox.install_config("omp/config.yml");
+
+    let applied = sandbox.run(&["use", "nord"]);
+    assert_eq!(code(&applied), 0, "{}", stderr(&applied));
+
+    let fragment = sandbox.fragment();
+
+    let mut document: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&fragment).unwrap()).unwrap();
+
+    document["schemes"][0]["background"] = serde_json::json!("#0b1019");
+    std::fs::write(&fragment, serde_json::to_string_pretty(&document).unwrap()).unwrap();
+
+    let output = sandbox.run(&["verify"]);
+    assert_eq!(code(&output), 0, "{}", stderr(&output));
+
+    let text = stdout(&output);
+    let lines: Vec<&str> = text.lines().collect();
+    assert_eq!(lines.len(), 2, "{text}");
+
+    assert_eq!(
+        cells(lines[0]),
+        ["target", "slot", "key", "expected", "found"]
+    );
+
+    assert_eq!(
+        cells(lines[1]),
+        [
+            "wt",
+            "dark",
+            "schemes.onecoat-dark.background",
+            "#0b1018",
+            "#0b1019"
+        ]
+    );
+
+    let check = sandbox.run(&["verify", "--check"]);
+    assert_eq!(code(&check), 1, "{}", stderr(&check));
+    assert_eq!(stdout(&check), text);
+
+    let machine = sandbox.run(&["verify", "--json"]);
+    assert_eq!(code(&machine), 0, "{}", stderr(&machine));
+
+    let parsed: serde_json::Value = serde_json::from_str(&stdout(&machine)).unwrap();
+
+    assert_eq!(
+        parsed,
+        serde_json::json!([{
+            "target": "wt",
+            "slot": "dark",
+            "key": "schemes.onecoat-dark.background",
+            "expected": "#0b1018",
+            "found": "#0b1019",
+        }])
+    );
+}
+
+#[test]
+fn verify_checks_a_target_the_last_apply_narrowed_out() {
+    let sandbox = Sandbox::new();
+    sandbox.install_settings("wt/settings.json");
+    sandbox.install_config("omp/config.yml");
+
+    let applied = sandbox.run(&["use", "nord"]);
+    assert_eq!(code(&applied), 0, "{}", stderr(&applied));
+
+    let narrowed = sandbox.run(&["use", "nord", "--targets", "omp"]);
+    assert_eq!(code(&narrowed), 0, "{}", stderr(&narrowed));
+
+    let config = sandbox.herdr_config();
+
+    let edited = std::fs::read_to_string(&config)
+        .unwrap()
+        .replace("auto_switch = true", "auto_switch = false");
+
+    std::fs::write(&config, edited).unwrap();
+
+    let output = sandbox.run(&["verify"]);
+    assert_eq!(code(&output), 0, "{}", stderr(&output));
+
+    let text = stdout(&output);
+    let rows: Vec<Vec<&str>> = text.lines().skip(1).map(cells).collect();
+    let row = ["herdr", "dark", "theme.auto_switch", "true", "false"];
+    assert!(rows.iter().any(|found| found.as_slice() == row), "{text}");
+
+    let check = sandbox.run(&["verify", "--check"]);
+    assert_eq!(code(&check), 1, "{}", stderr(&check));
+}
+
+#[test]
+fn verify_re_derives_expectations_from_the_assigned_theme() {
+    let sandbox = Sandbox::new();
+    sandbox.install_settings("wt/settings.json");
+    sandbox.install_config("omp/config.yml");
+
+    let applied = sandbox.run(&["use", "nord"]);
+    assert_eq!(code(&applied), 0, "{}", stderr(&applied));
+
+    let clean = sandbox.run(&["verify"]);
+    assert_eq!(stdout(&clean), "no drift\n");
+
+    sandbox.install_theme("themes/shadow-nord.toml", "shadow-nord.toml");
+
+    let output = sandbox.run(&["verify"]);
+    assert_eq!(code(&output), 0, "{}", stderr(&output));
+
+    let text = stdout(&output);
+    let rows: Vec<Vec<&str>> = text.lines().skip(1).map(cells).collect();
+    for row in [
+        [
+            "wt",
+            "dark",
+            "schemes.onecoat-dark.background",
+            "#101820",
+            "#0b1018",
+        ],
+        [
+            "herdr",
+            "dark",
+            "theme.custom.dark.panel_bg",
+            "#101820",
+            "#0b1018",
+        ],
+        ["omp", "dark", "colors.toolPendingBg", "#101820", "#0b1018"],
+    ] {
+        assert!(rows.iter().any(|found| found.as_slice() == row), "{text}");
+    }
+
+    let check = sandbox.run(&["verify", "--check"]);
+    assert_eq!(code(&check), 1, "{}", stderr(&check));
+}
+
+#[test]
+fn verify_treats_reformatting_as_no_drift() {
+    let sandbox = Sandbox::new();
+    sandbox.install_settings("wt/settings.json");
+    sandbox.install_config("omp/config.yml");
+
+    let applied = sandbox.run(&["use", "nord"]);
+    assert_eq!(code(&applied), 0, "{}", stderr(&applied));
+
+    let theme = sandbox.omp_theme("dark");
+
+    let parsed: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&theme).unwrap()).unwrap();
+
+    std::fs::write(&theme, serde_json::to_string(&parsed).unwrap()).unwrap();
+
+    let config = sandbox.herdr_config();
+    let source = std::fs::read_to_string(&config).unwrap();
+    std::fs::write(&config, format!("# a comment a human added\n{source}")).unwrap();
+
+    let output = sandbox.run(&["verify"]);
+    assert_eq!(code(&output), 0, "{}", stderr(&output));
+    assert_eq!(stdout(&output), "no drift\n");
+    assert!(output.stderr.is_empty(), "{}", stderr(&output));
+}
+
+#[test]
+fn verify_accepts_either_slots_herdr_shared_values() {
+    let sandbox = Sandbox::new();
+    sandbox.install_settings("wt/settings.json");
+    sandbox.install_config("omp/config.yml");
+    sandbox.install_theme("themes/herdr-overrides.toml", "herdr-overrides.toml");
+
+    let dark = sandbox.run(&["use", "nord"]);
+    assert_eq!(code(&dark), 0, "{}", stderr(&dark));
+
+    let light = sandbox.run(&["use", "herdr-overrides", "--slot", "light"]);
+    assert_eq!(code(&light), 0, "{}", stderr(&light));
+
+    let output = sandbox.run(&["verify"]);
+    assert_eq!(code(&output), 0, "{}", stderr(&output));
+    assert_eq!(stdout(&output), "no drift\n");
+
+    let config = sandbox.herdr_config();
+
+    let edited: String = std::fs::read_to_string(&config)
+        .unwrap()
+        .lines()
+        .map(|line| {
+            if line == "name = \"nord\"" {
+                "name = \"bogus\""
+            } else {
+                line
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    std::fs::write(&config, edited).unwrap();
+
+    let drifted = sandbox.run(&["verify"]);
+    assert_eq!(code(&drifted), 0, "{}", stderr(&drifted));
+
+    let text = stdout(&drifted);
+    let lines: Vec<&str> = text.lines().collect();
+    let head = cells(lines[1]);
+    assert_eq!(lines.len(), 2, "{text}");
+    assert_eq!(&head[..3], ["herdr", "dark", "theme.name"], "{text}");
+    assert!(lines[1].contains("terminal or nord"), "{text}");
+    assert!(lines[1].ends_with("bogus"), "{text}");
+
+    let check = sandbox.run(&["verify", "--check"]);
+    assert_eq!(code(&check), 1, "{}", stderr(&check));
+}
+
+#[test]
+fn verify_reports_a_removed_owned_key() {
+    let sandbox = Sandbox::new();
+    sandbox.install_settings("wt/settings.json");
+    sandbox.install_config("omp/config.yml");
+
+    let applied = sandbox.run(&["use", "nord"]);
+    assert_eq!(code(&applied), 0, "{}", stderr(&applied));
+
+    let config = sandbox.omp_config();
+
+    let edited: String = std::fs::read_to_string(&config)
+        .unwrap()
+        .lines()
+        .filter(|line| *line != "  dark: onecoat-dark")
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    std::fs::write(&config, format!("{edited}\n")).unwrap();
+
+    let output = sandbox.run(&["verify"]);
+    assert_eq!(code(&output), 0, "{}", stderr(&output));
+
+    let text = stdout(&output);
+    let rows: Vec<Vec<&str>> = text.lines().skip(1).map(cells).collect();
+    assert_eq!(rows.len(), 1, "{text}");
+
+    assert_eq!(rows[0], ["omp", "dark", "theme.dark", "onecoat-dark", "-"]);
+}
+
+#[test]
+fn verify_fails_on_a_broken_settings_file() {
+    let sandbox = Sandbox::new();
+    sandbox.install_settings("wt/settings.json");
+    sandbox.install_config("omp/config.yml");
+
+    let applied = sandbox.run(&["use", "nord"]);
+    assert_eq!(code(&applied), 0, "{}", stderr(&applied));
+
+    let settings = sandbox.settings();
+    std::fs::copy(fixture_path("wt/settings-broken.json"), &settings).unwrap();
+    let before = tree(sandbox.root());
+    for args in [
+        vec!["verify"],
+        vec!["verify", "--check"],
+        vec!["verify", "--json"],
+    ] {
+        let output = sandbox.run(&args);
+        assert_eq!(code(&output), 3, "args {args:?}");
+        assert!(stdout(&output).is_empty(), "args {args:?}");
+
+        let message = stderr(&output);
+
+        assert!(
+            message.contains(&settings.display().to_string()),
+            "{message}"
+        );
+
+        assert!(message.contains("line 9"), "{message}");
+    }
+
+    assert_eq!(
+        std::fs::read(&settings).unwrap(),
+        fixture_bytes("wt/settings-broken.json")
+    );
+
+    assert_eq!(tree(sandbox.root()), before, "verify writes nothing");
+}
+
+#[test]
+fn verify_reports_no_drift_without_a_state_file() {
+    let sandbox = Sandbox::new();
+
+    let output = sandbox.run(&["verify"]);
+    assert_eq!(code(&output), 0, "{}", stderr(&output));
+    assert_eq!(stdout(&output), "no drift\n");
+
+    let machine = sandbox.run(&["verify", "--json"]);
+    assert_eq!(code(&machine), 0, "{}", stderr(&machine));
+    assert_eq!(stdout(&machine), "[]\n");
+
+    let check = sandbox.run(&["verify", "--check"]);
+    assert_eq!(code(&check), 0, "{}", stderr(&check));
 }
 
 #[test]

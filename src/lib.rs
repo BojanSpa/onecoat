@@ -12,5 +12,6 @@ pub mod state;
 pub mod targets;
 pub mod themes;
 pub mod validate;
+pub mod verify;
 
 pub use error::Error;

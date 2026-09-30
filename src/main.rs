@@ -13,6 +13,7 @@ use onecoat::render::wt::ProfileScheme;
 use onecoat::state::State;
 use onecoat::targets::Paths;
 use onecoat::themes::ThemeSet;
+use onecoat::verify;
 
 #[derive(Parser)]
 #[command(
@@ -34,6 +35,8 @@ enum Command {
     Use(UseArgs),
     #[command(about = "Print the assigned theme per slot and the targets last applied")]
     Current(ReadArgs),
+    #[command(about = "Compare the target files with the assigned themes and report drift")]
+    Verify(VerifyArgs),
     #[command(
         about = "Report the resolved paths, the herdr program, the socket, the profile pins, and the state age"
     )]
@@ -77,9 +80,17 @@ struct UseArgs {
     profile_color_scheme: ProfileScheme,
 }
 
+#[derive(Args)]
+struct VerifyArgs {
+    #[arg(long, help = "Print machine-readable JSON on stdout")]
+    json: bool,
+    #[arg(long, help = "Exit 1 when any owned value drifted from its theme")]
+    check: bool,
+}
+
 fn main() -> ExitCode {
     match run(Cli::parse()) {
-        Ok(()) => ExitCode::SUCCESS,
+        Ok(code) => code,
         Err(error) => {
             eprintln!("error: {error}");
             ExitCode::from(3)
@@ -87,14 +98,17 @@ fn main() -> ExitCode {
     }
 }
 
-fn run(cli: Cli) -> Result<(), Error> {
+fn run(cli: Cli) -> Result<ExitCode, Error> {
     let paths = Paths::resolve()?;
     match cli.command {
-        Command::List(args) => list(&paths, args),
-        Command::Use(args) => apply(&paths, &args),
-        Command::Current(args) => current(&paths, args),
-        Command::Doctor(args) => doctor(&paths, args),
+        Command::List(args) => list(&paths, args)?,
+        Command::Use(args) => apply(&paths, &args)?,
+        Command::Current(args) => current(&paths, args)?,
+        Command::Verify(args) => return verify(&paths, &args),
+        Command::Doctor(args) => doctor(&paths, args)?,
     }
+
+    Ok(ExitCode::SUCCESS)
 }
 
 fn list(paths: &Paths, args: ReadArgs) -> Result<(), Error> {
@@ -165,6 +179,59 @@ fn current(paths: &Paths, args: ReadArgs) -> Result<(), Error> {
     }
 
     Ok(())
+}
+
+fn verify(paths: &Paths, args: &VerifyArgs) -> Result<ExitCode, Error> {
+    let state = exec::read_state(&paths.state)?;
+    let themes = ThemeSet::load(&paths.user_themes)?;
+
+    let mut plans: Vec<(Slot, Plan)> = Vec::new();
+    for slot in [Slot::Dark, Slot::Light] {
+        let Some(assigned) = state.assigned(slot) else {
+            continue;
+        };
+
+        let theme = themes
+            .get(assigned.as_str())
+            .ok_or_else(|| Error::ThemeNotFound {
+                id: assigned.clone(),
+            })?;
+
+        plans.push((
+            slot,
+            Plan::build(paths, theme, slot, ProfileScheme::Report)?,
+        ));
+    }
+
+    let alternatives =
+        verify::shared_alternatives(plans.iter().flat_map(|(_, plan)| plan.writes.iter()));
+
+    let mut findings = Vec::new();
+    for (slot, plan) in &plans {
+        for write in &plan.writes {
+            let source = exec::read_source(&write.path)?;
+
+            findings.extend(verify::drift(
+                *slot,
+                write,
+                source.as_deref(),
+                &alternatives,
+            )?);
+        }
+    }
+
+    let findings = verify::collapse(findings);
+    if args.json {
+        println!("{}", verify::json(&findings)?);
+    } else {
+        println!("{}", verify::table(&findings));
+    }
+
+    if args.check && !findings.is_empty() {
+        return Ok(ExitCode::from(1));
+    }
+
+    Ok(ExitCode::SUCCESS)
 }
 
 fn doctor(paths: &Paths, args: ReadArgs) -> Result<(), Error> {
