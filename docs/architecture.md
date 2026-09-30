@@ -61,8 +61,9 @@ src/render/omp.rs    69-token theme file + config.yml splice
 src/plan.rs          Plan, PlannedWrite, dry-run rendering
 src/exec.rs          re-read, backup, atomic replace, re-parse, restore
 src/jsonc.rs         CST splice over dotted keys, appearance pairs, and named array elements
-src/state.rs         config, state, drift re-derivation
+src/state.rs         slot assignment and applied targets
 src/doctor.rs        resolved paths, PATH lookup, pins, state age
+src/verify.rs        owned keys, drift comparison, report and exit
 src/coherence.rs     role equality and perceptual spacing
 src/appearance.rs    registry read + notification
 src/targets.rs       path resolution, socket discovery
@@ -111,7 +112,7 @@ enum Error {
 }
 ```
 
-The theme-schema variants sit beside these; `ExternalCheckFailed`, `Drift`, and `Incoherent` arrive with the slices that detect them.<br>
+The theme-schema variants sit beside these; `ExternalCheckFailed` and `Incoherent` arrive with the slices that detect them.<br>
 `Expected` says what the key should have been, `Key` is the dotted path this slice spliced, and both are rendered in the message the user sees.<br>
 
 ## Theme schema
@@ -210,8 +211,6 @@ State is written last: `%APPDATA%\onecoat\state.json` holds the slot assignment 
 `use` records the slot it applied and leaves the other slot as it was, so a `--slot light` apply does not unassign `dark`.<br>
 `current` prints one row per slot plus the applied targets, and `--json` prints the state document itself.<br>
 A missing file reads as two unassigned slots; a malformed one fails the command before any target file is written.<br>
-The pinned target names and the expected value for every owned key join the document in VS9.<br>
-It is disposable — deleting it turns the next `verify` into a full re-derivation instead of a comparison.<br>
 
 ## Inspection
 
@@ -228,7 +227,22 @@ A `settings.json` that does not parse is the usual error and exits 3, and `--jso
 
 `verify` re-derives every owned value from the canonical theme and compares it against the parsed target file.<br>
 A reformatted file is not drift; a changed color is.<br>
-Files that fail to parse are reported as errors, not drift.<br>
+It writes nothing: it reads the state, builds every assigned slot's plan over every target onecoat owns, and compares in dark-then-light order.<br>
+The recorded target list feeds `current`; it never narrows the check, so a `--targets`-limited apply cannot hide drift.<br>
+An unassigned slot and a missing state file yield no findings; a missing assigned theme and a malformed state file stay errors.<br>
+Expected values come from the plan's edits, never from the file, so the report states what an apply would change.<br>
+Each format is read by its own parser — `jsonc::value` for the fragment, `settings.json`, and the generated omp theme file, `herdr::parse` and `herdr::value` for the herdr config, `omp::config_value` for the omp pin — so comments, indentation, key order, and line endings never drift.<br>
+A finding names the target, the slot, the dotted key, and the expected and found values.<br>
+Containers are compared key by key, down to keys like `colors.text`, so a token added by hand is drift.<br>
+A container facing an absent value reports once per leaf of the container, with `-` for the absent side; a container facing a scalar is one finding, with the container as compact JSON.<br>
+A finding that repeats an earlier one for the same target and key with the same values is dropped, so a shared key prints once.<br>
+The report is one row per finding — `target slot key expected found` — or the single line `no drift`; `--json` prints the findings as an array.<br>
+A herdr *shared* key is every herdr edit outside `theme.custom.<slot>`: the four `[theme]` keys and the five shared tokens.<br>
+A shared key accepts any assigned slot's value, because the shared layer carries whichever theme applied last.<br>
+A shared value no slot expects is drift, and its expected joins the distinct values in dark-then-light order around `or`.<br>
+An absent file that onecoat may create reports every owned key as missing; an absent file onecoat may not invent is the usual `MissingFile` error.<br>
+A file that does not parse is reported as an error, not drift.<br>
+`--check` exits 1 on any finding and 0 otherwise; without it a finding still exits 0.<br>
 
 Coherence has two independent checks:<br>
 
